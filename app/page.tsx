@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { objectivesData, Objective } from '@/data/objectives';
+import { EditableField } from './components/EditableField';
+import { PreferencesModal } from './components/PreferencesModal';
 
 interface Task {
   id: number;
@@ -13,9 +15,16 @@ interface Task {
 interface MeetingNote {
   id: number;
   week: 'last' | 'current' | 'next';
-  date: string; // Manual date entry
+  date: string;
   content: string;
-  cascade: string; // who to communicate this to
+  cascade: string;
+}
+
+interface OrganizationInfo {
+  whyExist: string;
+  howBehave: string;
+  whatDo: string;
+  howSucceed: string;
 }
 
 export default function Home() {
@@ -26,6 +35,13 @@ export default function Home() {
   const [newNoteContent, setNewNoteContent] = useState('');
   const [newNoteDate, setNewNoteDate] = useState('');
   const [newNoteCascade, setNewNoteCascade] = useState('');
+  const [showPreferences, setShowPreferences] = useState(false);
+  const [organizationInfo, setOrganizationInfo] = useState<OrganizationInfo>({
+    whyExist: 'To help people encounter Jesus and grow in faith.',
+    howBehave: 'Childlike Hearts • Loyal Servants • Hungry for More',
+    whatDo: 'We disciple people, build community, and equip leaders.',
+    howSucceed: 'Through intentional leadership and accountability.'
+  });
 
   const updateObjectiveStatus = (id: number, newStatus: string) => {
     setObjectives(objectives.map(obj =>
@@ -33,7 +49,20 @@ export default function Home() {
     ));
   };
 
+  const updateObjectiveTitle = (id: number, newTitle: string) => {
+    setObjectives(objectives.map(obj =>
+      obj.id === id ? { ...obj, title: newTitle } : obj
+    ));
+  };
+
+  const updateObjectiveDescription = (id: number, newDescription: string) => {
+    setObjectives(objectives.map(obj =>
+      obj.id === id ? { ...obj, description: newDescription } : obj
+    ));
+  };
+
   const addTask = (objectiveId: number, taskTitle: string, assignedTo: string) => {
+    if (!taskTitle || !assignedTo) return;
     const newTask: Task = {
       id: Date.now(),
       title: taskTitle,
@@ -46,6 +75,18 @@ export default function Home() {
   const updateTaskStatus = (taskId: number, newStatus: 'planning' | 'in-progress' | 'waiting' | 'completed') => {
     setTasks(tasks.map(task =>
       task.id === taskId ? { ...task, status: newStatus } : task
+    ));
+  };
+
+  const updateTaskTitle = (taskId: number, newTitle: string) => {
+    setTasks(tasks.map(task =>
+      task.id === taskId ? { ...task, title: newTitle } : task
+    ));
+  };
+
+  const updateTaskAssignee = (taskId: number, newAssignee: string) => {
+    setTasks(tasks.map(task =>
+      task.id === taskId ? { ...task, assignedTo: newAssignee } : task
     ));
   };
 
@@ -64,6 +105,16 @@ export default function Home() {
     setNewNoteCascade('');
   };
 
+  const updateMeetingNote = (noteId: number, field: 'content' | 'date' | 'cascade', value: string) => {
+    setMeetingNotes(meetingNotes.map(note =>
+      note.id === noteId ? { ...note, [field]: value } : note
+    ));
+  };
+
+  const deleteMeetingNote = (noteId: number) => {
+    setMeetingNotes(meetingNotes.filter(note => note.id !== noteId));
+  };
+
   const getNotesForWeek = (week: 'last' | 'current' | 'next') => {
     return meetingNotes.filter(note => note.week === week);
   };
@@ -71,13 +122,21 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-100 p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-10">
-          <h1 className="text-5xl font-bold text-slate-800">
-            Leadership Objectives Dashboard
-          </h1>
-          <p className="text-slate-600 mt-3 text-lg">
-            Strategic planning and accountability platform
-          </p>
+        <div className="mb-10 flex justify-between items-start">
+          <div>
+            <h1 className="text-5xl font-bold text-slate-800">
+              Leadership Objectives Dashboard
+            </h1>
+            <p className="text-slate-600 mt-3 text-lg">
+              Strategic planning and accountability platform
+            </p>
+          </div>
+          <button
+            onClick={() => setShowPreferences(true)}
+            className="px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-800"
+          >
+            ⚙️ Preferences
+          </button>
         </div>
 
         {/* Mission Values Grid */}
@@ -85,25 +144,25 @@ export default function Home() {
           <div className="bg-white rounded-3xl p-5 shadow">
             <h2 className="font-bold text-lg mb-3">Why Do We Exist?</h2>
             <p className="text-slate-600">
-              To help people encounter Jesus and grow in faith.
+              {organizationInfo.whyExist}
             </p>
           </div>
           <div className="bg-white rounded-3xl p-5 shadow">
             <h2 className="font-bold text-lg mb-3">How Do We Behave?</h2>
             <p className="text-slate-600">
-              Childlike Hearts • Loyal Servants • Hungry for More
+              {organizationInfo.howBehave}
             </p>
           </div>
           <div className="bg-white rounded-3xl p-5 shadow">
             <h2 className="font-bold text-lg mb-3">What Do We Do?</h2>
             <p className="text-slate-600">
-              We disciple people, build community, and equip leaders.
+              {organizationInfo.whatDo}
             </p>
           </div>
           <div className="bg-white rounded-3xl p-5 shadow">
             <h2 className="font-bold text-lg mb-3">How Will We Succeed?</h2>
             <p className="text-slate-600">
-              Through intentional leadership and accountability.
+              {organizationInfo.howSucceed}
             </p>
           </div>
         </div>
@@ -122,13 +181,20 @@ export default function Home() {
               className={`border-l-8 rounded-3xl p-6 shadow bg-white border-blue-500`}
             >
               <div className="flex justify-between items-start mb-5">
-                <div>
-                  <h3 className="text-2xl font-semibold text-slate-800">
-                    {objective.title}
-                  </h3>
-                  <p className="text-slate-600 mt-2">
-                    {objective.description}
-                  </p>
+                <div className="flex-1">
+                  <EditableField
+                    value={objective.title}
+                    onSave={(value) => updateObjectiveTitle(objective.id, value)}
+                    placeholder="Objective title"
+                    className="text-2xl font-semibold text-slate-800 mb-2"
+                  />
+                  <EditableField
+                    value={objective.description}
+                    onSave={(value) => updateObjectiveDescription(objective.id, value)}
+                    placeholder="Objective description"
+                    multiline
+                    className="text-slate-600"
+                  />
                 </div>
 
                 <select
@@ -145,18 +211,28 @@ export default function Home() {
 
               {/* Kanban Board */}
               <div className="grid md:grid-cols-4 gap-4 mb-6">
-                {['planning', 'in-progress', 'waiting', 'completed'].map((status) => (
+                {(['planning', 'in-progress', 'waiting', 'completed'] as const).map((status) => (
                   <div key={status} className="bg-slate-100 rounded-2xl p-4 min-h-[200px]">
                     <h4 className="font-semibold mb-4 capitalize">{status.replace('-', ' ')}</h4>
                     <div className="space-y-2">
                       {tasks.filter(task => task.status === status).map(task => (
-                        <div key={task.id} className="bg-white rounded-xl p-3 shadow-sm text-sm">
-                          <p>{task.title}</p>
-                          <p className="text-slate-500">Assigned: {task.assignedTo}</p>
+                        <div key={task.id} className="bg-white rounded-xl p-3 shadow-sm text-sm space-y-2">
+                          <EditableField
+                            value={task.title}
+                            onSave={(value) => updateTaskTitle(task.id, value)}
+                            placeholder="Task title"
+                            className="font-semibold"
+                          />
+                          <EditableField
+                            value={task.assignedTo || ''}
+                            onSave={(value) => updateTaskAssignee(task.id, value)}
+                            placeholder="Assigned to"
+                            className="text-slate-500"
+                          />
                           <select
                             value={task.status}
                             onChange={(e) => updateTaskStatus(task.id, e.target.value as any)}
-                            className="mt-2 text-xs border rounded px-2 py-1"
+                            className="w-full text-xs border rounded px-2 py-1"
                           >
                             <option value="planning">Planning</option>
                             <option value="in-progress">In Progress</option>
@@ -176,16 +252,24 @@ export default function Home() {
                 <div className="flex gap-2">
                   <input
                     type="text"
+                    id={`task-title-${objective.id}`}
                     placeholder="Task title"
                     className="flex-1 px-3 py-2 border rounded"
                   />
                   <input
                     type="text"
+                    id={`task-assignee-${objective.id}`}
                     placeholder="Assign to"
                     className="px-3 py-2 border rounded"
                   />
                   <button
-                    onClick={() => addTask(objective.id, 'New Task', 'Assignee')}
+                    onClick={() => {
+                      const titleInput = document.getElementById(`task-title-${objective.id}`) as HTMLInputElement;
+                      const assigneeInput = document.getElementById(`task-assignee-${objective.id}`) as HTMLInputElement;
+                      addTask(objective.id, titleInput.value, assigneeInput.value);
+                      titleInput.value = '';
+                      assigneeInput.value = '';
+                    }}
                     className="px-4 py-2 bg-amber-500 text-white rounded hover:bg-amber-600"
                   >
                     Delegate
@@ -224,12 +308,36 @@ export default function Home() {
           {/* Notes Display */}
           <div className="space-y-4 mb-6">
             {getNotesForWeek(currentWeek).map((note) => (
-              <div key={note.id} className="bg-blue-50 rounded-2xl p-4 border border-blue-200">
-                <div className="flex justify-between items-start mb-2">
-                  <span className="font-semibold text-blue-900">{note.date}</span>
-                  <span className="text-sm text-slate-600">Cascade to: {note.cascade}</span>
+              <div key={note.id} className="bg-blue-50 rounded-2xl p-4 border border-blue-200 space-y-2">
+                <div className="flex justify-between items-start">
+                  <EditableField
+                    value={note.date}
+                    onSave={(value) => updateMeetingNote(note.id, 'date', value)}
+                    placeholder="Date"
+                    className="font-semibold text-blue-900"
+                  />
+                  <button
+                    onClick={() => deleteMeetingNote(note.id)}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                  >
+                    Delete
+                  </button>
                 </div>
-                <p className="text-slate-700">{note.content}</p>
+                <div>
+                  <label className="text-sm font-semibold text-slate-600">Cascade to:</label>
+                  <EditableField
+                    value={note.cascade}
+                    onSave={(value) => updateMeetingNote(note.id, 'cascade', value)}
+                    placeholder="Who to communicate this to"
+                  />
+                </div>
+                <EditableField
+                  value={note.content}
+                  onSave={(value) => updateMeetingNote(note.id, 'content', value)}
+                  placeholder="Meeting note"
+                  multiline
+                  className="bg-white p-3 rounded"
+                />
               </div>
             ))}
           </div>
@@ -268,6 +376,13 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+        <PreferencesModal
+          isOpen={showPreferences}
+          onClose={() => setShowPreferences(false)}
+          organizationInfo={organizationInfo}
+          onSave={setOrganizationInfo}
+        />
     </main>
   );
 }
