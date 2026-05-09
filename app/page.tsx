@@ -1,58 +1,44 @@
 'use client';
 
-import { DragEvent, useState, type Dispatch, type SetStateAction } from 'react';
-import { objectivesData, Objective } from '@/data/objectives';
-import { EditableField } from './components/EditableField';
-import { PreferencesModal } from './components/PreferencesModal';
-
-type Task = Objective['tasks'][number];
-
-type MeetingSectionKey = 'agenda' | 'topic' | 'decision' | 'cascade';
-
-interface OrganizationInfo {
-  whyExist: string;
-  howBehave: string;
-  whatDo: string;
-  howSucceed: string;
-}
-
-const statusOptions = ['planning', 'in-progress', 'waiting', 'completed'] as const;
-const colorClasses: Record<Objective['color'], string> = {
-  'dark-green': 'border-emerald-700',
-  green: 'border-emerald-500',
-  yellow: 'border-yellow-400',
-  orange: 'border-orange-500',
-  red: 'border-red-500'
-};
+import { useState, type DragEvent } from 'react';
+import { PreferencesModal } from '@/app/components/dashboard/PreferencesModal';
+import { MeetingSection } from '@/app/components/meeting/MeetingSection';
+import { ObjectiveCard } from '@/app/components/objectives/ObjectiveCard';
+import { useLocalStorage } from '@/app/hooks/useLocalStorage';
+import {
+  defaultDashboardTitle,
+  defaultMeetingSectionOrder,
+  defaultOrganizationInfo
+} from '@/app/lib/objectiveOptions';
+import type {
+  MeetingItem,
+  MeetingSectionConfig,
+  MeetingSectionKey,
+  TaskInput
+} from '@/app/types/dashboard';
+import type { Objective, Task } from '@/app/types/objective';
+import { objectivesData } from '@/data/objectives';
 
 export default function Home() {
-  const [objectives, setObjectives] = useState<Objective[]>(objectivesData);
-  const [agendaItems, setAgendaItems] = useState<{ id: number; text: string }[]>([]);
-  const [topicItems, setTopicItems] = useState<{ id: number; text: string }[]>([]);
-  const [decisionItems, setDecisionItems] = useState<{ id: number; text: string }[]>([]);
-  const [cascadeItems, setCascadeItems] = useState<{ id: number; text: string }[]>([]);
+  const [objectives, setObjectives] = useLocalStorage<Objective[]>('leadership-objectives', objectivesData);
+  const [agendaItems, setAgendaItems] = useLocalStorage<MeetingItem[]>('leadership-agenda-items', []);
+  const [topicItems, setTopicItems] = useLocalStorage<MeetingItem[]>('leadership-topic-items', []);
+  const [decisionItems, setDecisionItems] = useLocalStorage<MeetingItem[]>('leadership-decision-items', []);
+  const [cascadeItems, setCascadeItems] = useLocalStorage<MeetingItem[]>('leadership-cascade-items', []);
+  const [dashboardTitle, setDashboardTitle] = useLocalStorage('leadership-dashboard-title', defaultDashboardTitle);
+  const [organizationInfo, setOrganizationInfo] = useLocalStorage('leadership-organization-info', defaultOrganizationInfo);
+  const [meetingSectionOrder, setMeetingSectionOrder] = useLocalStorage<MeetingSectionKey[]>(
+    'leadership-meeting-section-order',
+    defaultMeetingSectionOrder
+  );
   const [newAgendaItem, setNewAgendaItem] = useState('');
   const [newTopicItem, setNewTopicItem] = useState('');
   const [newDecisionItem, setNewDecisionItem] = useState('');
   const [newCascadeItem, setNewCascadeItem] = useState('');
   const [showPreferences, setShowPreferences] = useState(false);
-  const [dashboardTitle, setDashboardTitle] = useState('Leadership Objectives Dashboard');
-  const [organizationInfo, setOrganizationInfo] = useState<OrganizationInfo>({
-    whyExist: 'To help people encounter Jesus and grow in faith.',
-    howBehave: 'Childlike Hearts • Loyal Servants • Hungry for More',
-    whatDo: 'We disciple people, build community, and equip leaders.',
-    howSucceed: 'Through intentional leadership and accountability.'
-  });
-  const [taskInputs, setTaskInputs] = useState<Record<number, { title: string; assignedTo: string }>>({});
+  const [taskInputs, setTaskInputs] = useState<Record<number, TaskInput>>({});
   const [draggingObjectiveId, setDraggingObjectiveId] = useState<number | null>(null);
-  const [meetingSectionOrder, setMeetingSectionOrder] = useState<MeetingSectionKey[]>(['agenda', 'topic', 'decision', 'cascade']);
   const [draggingMeetingSection, setDraggingMeetingSection] = useState<MeetingSectionKey | null>(null);
-
-  const updateObjectiveStatus = (id: number, newStatus: string) => {
-    setObjectives(objectives.map((obj) =>
-      obj.id === id ? { ...obj, status: newStatus as Objective['status'] } : obj
-    ));
-  };
 
   const updateObjectiveTitle = (id: number, newTitle: string) => {
     setObjectives(objectives.map((obj) =>
@@ -206,75 +192,33 @@ export default function Home() {
     ));
   };
 
-  const addAgendaItem = () => {
-    if (!newAgendaItem.trim()) return;
-    setAgendaItems([...agendaItems, { id: Date.now(), text: newAgendaItem.trim() }]);
-    setNewAgendaItem('');
+  const updateTaskInput = (objectiveId: number, input: TaskInput) => {
+    setTaskInputs({
+      ...taskInputs,
+      [objectiveId]: input
+    });
   };
 
-  const addTopicItem = () => {
-    if (!newTopicItem.trim()) return;
-    setTopicItems([...topicItems, { id: Date.now(), text: newTopicItem.trim() }]);
-    setNewTopicItem('');
+  const addMeetingItem = (
+    value: string,
+    setValue: (value: string) => void,
+    items: MeetingItem[],
+    setItems: (items: MeetingItem[]) => void
+  ) => {
+    if (!value.trim()) return;
+    setItems([...items, { id: Date.now(), text: value.trim() }]);
+    setValue('');
   };
 
-  const addDecisionItem = () => {
-    if (!newDecisionItem.trim()) return;
-    setDecisionItems([...decisionItems, { id: Date.now(), text: newDecisionItem.trim() }]);
-    setNewDecisionItem('');
+  const updateMeetingItem = (items: MeetingItem[], setItems: (items: MeetingItem[]) => void, itemId: number, value: string) => {
+    setItems(items.map((item) => (item.id === itemId ? { ...item, text: value } : item)));
   };
 
-  const addCascadeItem = () => {
-    if (!newCascadeItem.trim()) return;
-    setCascadeItems([...cascadeItems, { id: Date.now(), text: newCascadeItem.trim() }]);
-    setNewCascadeItem('');
+  const deleteMeetingItem = (items: MeetingItem[], setItems: (items: MeetingItem[]) => void, itemId: number) => {
+    setItems(items.filter((item) => item.id !== itemId));
   };
 
-  const updateAgendaItem = (itemId: number, value: string) => {
-    setAgendaItems(agendaItems.map((item) => (item.id === itemId ? { ...item, text: value } : item)));
-  };
-
-  const updateTopicItem = (itemId: number, value: string) => {
-    setTopicItems(topicItems.map((item) => (item.id === itemId ? { ...item, text: value } : item)));
-  };
-
-  const updateDecisionItem = (itemId: number, value: string) => {
-    setDecisionItems(decisionItems.map((item) => (item.id === itemId ? { ...item, text: value } : item)));
-  };
-
-  const updateCascadeItem = (itemId: number, value: string) => {
-    setCascadeItems(cascadeItems.map((item) => (item.id === itemId ? { ...item, text: value } : item)));
-  };
-
-  const deleteAgendaItem = (itemId: number) => {
-    setAgendaItems(agendaItems.filter((item) => item.id !== itemId));
-  };
-
-  const deleteTopicItem = (itemId: number) => {
-    setTopicItems(topicItems.filter((item) => item.id !== itemId));
-  };
-
-  const deleteDecisionItem = (itemId: number) => {
-    setDecisionItems(decisionItems.filter((item) => item.id !== itemId));
-  };
-
-  const deleteCascadeItem = (itemId: number) => {
-    setCascadeItems(cascadeItems.filter((item) => item.id !== itemId));
-  };
-
-  const meetingSections: Record<MeetingSectionKey, {
-    id: MeetingSectionKey;
-    title: string;
-    description: string;
-    items: { id: number; text: string }[];
-    newItem: string;
-    setNewItem: Dispatch<SetStateAction<string>>;
-    addItem: () => void;
-    updateItem: (itemId: number, value: string) => void;
-    deleteItem: (itemId: number) => void;
-    placeholder: string;
-    editPlaceholder: string;
-  }> = {
+  const meetingSections: Record<MeetingSectionKey, MeetingSectionConfig> = {
     agenda: {
       id: 'agenda',
       title: 'Agenda Items',
@@ -282,9 +226,9 @@ export default function Home() {
       items: agendaItems,
       newItem: newAgendaItem,
       setNewItem: setNewAgendaItem,
-      addItem: addAgendaItem,
-      updateItem: updateAgendaItem,
-      deleteItem: deleteAgendaItem,
+      addItem: () => addMeetingItem(newAgendaItem, setNewAgendaItem, agendaItems, setAgendaItems),
+      updateItem: (itemId, value) => updateMeetingItem(agendaItems, setAgendaItems, itemId, value),
+      deleteItem: (itemId) => deleteMeetingItem(agendaItems, setAgendaItems, itemId),
       placeholder: 'New agenda item',
       editPlaceholder: 'Add agenda item'
     },
@@ -295,9 +239,9 @@ export default function Home() {
       items: topicItems,
       newItem: newTopicItem,
       setNewItem: setNewTopicItem,
-      addItem: addTopicItem,
-      updateItem: updateTopicItem,
-      deleteItem: deleteTopicItem,
+      addItem: () => addMeetingItem(newTopicItem, setNewTopicItem, topicItems, setTopicItems),
+      updateItem: (itemId, value) => updateMeetingItem(topicItems, setTopicItems, itemId, value),
+      deleteItem: (itemId) => deleteMeetingItem(topicItems, setTopicItems, itemId),
       placeholder: 'New strategic topic',
       editPlaceholder: 'Add strategic topic'
     },
@@ -308,9 +252,9 @@ export default function Home() {
       items: decisionItems,
       newItem: newDecisionItem,
       setNewItem: setNewDecisionItem,
-      addItem: addDecisionItem,
-      updateItem: updateDecisionItem,
-      deleteItem: deleteDecisionItem,
+      addItem: () => addMeetingItem(newDecisionItem, setNewDecisionItem, decisionItems, setDecisionItems),
+      updateItem: (itemId, value) => updateMeetingItem(decisionItems, setDecisionItems, itemId, value),
+      deleteItem: (itemId) => deleteMeetingItem(decisionItems, setDecisionItems, itemId),
       placeholder: 'New decision or action',
       editPlaceholder: 'Decision or action item'
     },
@@ -321,9 +265,9 @@ export default function Home() {
       items: cascadeItems,
       newItem: newCascadeItem,
       setNewItem: setNewCascadeItem,
-      addItem: addCascadeItem,
-      updateItem: updateCascadeItem,
-      deleteItem: deleteCascadeItem,
+      addItem: () => addMeetingItem(newCascadeItem, setNewCascadeItem, cascadeItems, setCascadeItems),
+      updateItem: (itemId, value) => updateMeetingItem(cascadeItems, setCascadeItems, itemId, value),
+      deleteItem: (itemId) => deleteMeetingItem(cascadeItems, setCascadeItems, itemId),
       placeholder: 'New cascading message',
       editPlaceholder: 'Cascading message'
     }
@@ -400,225 +344,37 @@ export default function Home() {
 
         <div className="space-y-6">
           {objectives.map((objective) => (
-            <div
+            <ObjectiveCard
               key={objective.id}
-              draggable
-              onDragStart={() => handleDragStart(objective.id)}
+              objective={objective}
+              taskInput={taskInputs[objective.id]}
+              onDragStart={handleDragStart}
               onDragOver={handleDragOver}
-              onDrop={() => handleDrop(objective.id)}
-              className={`relative rounded-3xl p-6 shadow bg-white/80 backdrop-blur-sm border-t-[18px] ${colorClasses[objective.color]} cursor-grab transition hover:shadow-xl`}
-            >
-              <div className="pr-14 mb-5">
-                <EditableField
-                  value={objective.title}
-                  onSave={(value) => updateObjectiveTitle(objective.id, value)}
-                  placeholder="Objective title"
-                  className="text-2xl font-semibold text-slate-900 mb-3"
-                />
-                <EditableField
-                  value={objective.description}
-                  onSave={(value) => updateObjectiveDescription(objective.id, value)}
-                  placeholder="Objective description"
-                  multiline
-                  className="text-slate-700"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => deleteObjective(objective.id)}
-                className="absolute right-5 top-5 w-10 h-10 rounded-full bg-red-100 text-red-700 flex items-center justify-center hover:bg-red-200"
-                aria-label="Delete objective"
-              >
-                ×
-              </button>
-
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <label className="text-sm font-semibold text-slate-700">Status</label>
-                  <select
-                    value={objective.color}
-                    onChange={(e) => updateObjectiveColor(objective.id, e.target.value as Objective['color'])}
-                    className="border rounded-xl px-3 py-2 bg-white text-slate-900"
-                  >
-                    <option value="dark-green">Dark Green</option>
-                    <option value="green">Green</option>
-                    <option value="yellow">Yellow</option>
-                    <option value="orange">Orange</option>
-                    <option value="red">Red</option>
-                  </select>
-                </div>
-                <div className="text-sm text-slate-500">Drag the section to reorder</div>
-              </div>
-
-              <div className="grid md:grid-cols-4 gap-4 mb-6">
-                {statusOptions.map((status) => (
-                  <div key={status} className="bg-slate-100 rounded-2xl p-4 min-h-[180px]">
-                    <h4 className="font-semibold mb-4 capitalize text-slate-800">{status.replace('-', ' ')}</h4>
-                    <div className="space-y-3">
-                      {objective.tasks.filter((task) => task.status === status).map((task) => (
-                        <div key={task.id} className="bg-white rounded-xl p-3 shadow-sm text-slate-800">
-                          <div className="flex justify-between items-start gap-3 mb-3">
-                            <EditableField
-                              value={task.title}
-                              onSave={(value) => updateTaskTitle(objective.id, task.id, value)}
-                              placeholder="Task title"
-                              className="font-semibold text-slate-900"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => deleteTask(objective.id, task.id)}
-                              className="text-red-500 text-xs hover:text-red-700"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                          <EditableField
-                            value={task.assignedTo || ''}
-                            onSave={(value) => updateTaskAssignee(objective.id, task.id, value)}
-                            placeholder="Assign to (optional)"
-                            className="text-slate-600"
-                          />
-                          <select
-                            value={task.status}
-                            onChange={(e) => updateTaskStatus(objective.id, task.id, e.target.value as Task['status'])}
-                            className="w-full mt-3 text-xs border rounded px-2 py-2"
-                          >
-                            <option value="planning">Planning</option>
-                            <option value="in-progress">In Progress</option>
-                            <option value="waiting">Waiting</option>
-                            <option value="completed">Completed</option>
-                          </select>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                  <div>
-                    <h4 className="font-semibold text-slate-900">Add Task</h4>
-                  </div>
-                </div>
-                <div className="grid gap-3 md:grid-cols-[2fr_1fr_auto]">
-                  <input
-                    value={taskInputs[objective.id]?.title || ''}
-                    onChange={(e) =>
-                      setTaskInputs({
-                        ...taskInputs,
-                        [objective.id]: {
-                          title: e.target.value,
-                          assignedTo: taskInputs[objective.id]?.assignedTo || ''
-                        }
-                      })
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addTask(objective.id, taskInputs[objective.id]?.title || '', taskInputs[objective.id]?.assignedTo || '');
-                      }
-                    }}
-                    placeholder="Task title"
-                    className="px-3 py-3 border border-slate-300 rounded text-slate-900"
-                  />
-                  <input
-                    value={taskInputs[objective.id]?.assignedTo || ''}
-                    onChange={(e) =>
-                      setTaskInputs({
-                        ...taskInputs,
-                        [objective.id]: {
-                          title: taskInputs[objective.id]?.title || '',
-                          assignedTo: e.target.value
-                        }
-                      })
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addTask(objective.id, taskInputs[objective.id]?.title || '', taskInputs[objective.id]?.assignedTo || '');
-                      }
-                    }}
-                    placeholder="Assign to (optional)"
-                    className="px-3 py-3 border border-slate-300 rounded text-slate-900"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => addTask(objective.id, taskInputs[objective.id]?.title || '', taskInputs[objective.id]?.assignedTo || '')}
-                    className="px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
-                  >
-                    Add
-                  </button>
-                </div>
-              </div>
-            </div>
+              onDrop={handleDrop}
+              onUpdateTitle={updateObjectiveTitle}
+              onUpdateDescription={updateObjectiveDescription}
+              onUpdateColor={updateObjectiveColor}
+              onDelete={deleteObjective}
+              onTaskInputChange={updateTaskInput}
+              onAddTask={addTask}
+              onUpdateTaskStatus={updateTaskStatus}
+              onUpdateTaskTitle={updateTaskTitle}
+              onUpdateTaskAssignee={updateTaskAssignee}
+              onDeleteTask={deleteTask}
+            />
           ))}
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 mt-10">
-          {meetingSectionOrder.map((sectionKey) => {
-            const section = meetingSections[sectionKey];
-            return (
-              <div
-                key={section.id}
-                draggable
-                onDragStart={() => handleMeetingSectionDragStart(section.id)}
-                onDragOver={handleDragOver}
-                onDrop={() => handleMeetingSectionDrop(section.id)}
-                className="relative rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm cursor-grab"
-              >
-                <div className="absolute right-5 top-5 text-slate-400 text-lg" aria-hidden="true">≡</div>
-                <div className="mb-4">
-                  <h3 className="text-xl font-semibold text-slate-900">{section.title}</h3>
-                  <p className="text-sm text-slate-500">{section.description}</p>
-                </div>
-                <div className="space-y-3">
-                  {section.items.map((item) => (
-                    <div key={item.id} className="flex gap-3">
-                      <div className="flex-1">
-                        <EditableField
-                          value={item.text}
-                          onSave={(value) => section.updateItem(item.id, value)}
-                          placeholder={section.editPlaceholder}
-                          className="text-slate-800"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => section.deleteItem(item.id)}
-                        className="text-red-500 hover:text-red-700"
-                        aria-label={`Remove ${section.title}`}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  <div className="flex gap-2">
-                    <input
-                      value={section.newItem}
-                      onChange={(e) => section.setNewItem(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          section.addItem();
-                        }
-                      }}
-                      className="flex-1 border border-slate-300 rounded px-3 py-2 text-slate-900"
-                      placeholder={section.placeholder}
-                    />
-                    <button
-                      type="button"
-                      onClick={section.addItem}
-                      className="bg-blue-600 text-white rounded-xl px-4 py-2 hover:bg-blue-700"
-                    >
-                      Add
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {meetingSectionOrder.map((sectionKey) => (
+            <MeetingSection
+              key={sectionKey}
+              section={meetingSections[sectionKey]}
+              onDragStart={handleMeetingSectionDragStart}
+              onDragOver={handleDragOver}
+              onDrop={handleMeetingSectionDrop}
+            />
+          ))}
         </div>
       </div>
 
