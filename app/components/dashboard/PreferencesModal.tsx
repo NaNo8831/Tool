@@ -1,14 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { EditableField } from './EditableField';
-
-interface OrganizationInfo {
-  whyExist: string;
-  howBehave: string;
-  whatDo: string;
-  howSucceed: string;
-}
+import { EditableField } from '@/app/components/ui/EditableField';
+import type { OrganizationInfo } from '@/app/types/dashboard';
 
 interface PreferencesModalProps {
   isOpen: boolean;
@@ -27,20 +20,10 @@ export function PreferencesModal({
   dashboardTitle,
   onDashboardTitleChange
 }: PreferencesModalProps) {
-  const [info, setInfo] = useState(organizationInfo);
-  const [title, setTitle] = useState(dashboardTitle);
-
-  useEffect(() => {
-    setInfo(organizationInfo);
-    setTitle(dashboardTitle);
-  }, [organizationInfo, dashboardTitle]);
-
   if (!isOpen) return null;
 
   const handleSave = (field: keyof OrganizationInfo, value: string) => {
-    const updated = { ...info, [field]: value };
-    setInfo(updated);
-    onSave(updated);
+    onSave({ ...organizationInfo, [field]: value });
   };
 
   return (
@@ -53,11 +36,8 @@ export function PreferencesModal({
             <label className="block text-lg font-semibold mb-2">Dashboard Title</label>
             <input
               type="text"
-              value={title}
-              onChange={(e) => {
-                setTitle(e.target.value);
-                onDashboardTitleChange(e.target.value);
-              }}
+              value={dashboardTitle}
+              onChange={(e) => onDashboardTitleChange(e.target.value)}
               className="w-full px-4 py-3 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300"
               placeholder="Meeting Tool"
             />
@@ -67,7 +47,7 @@ export function PreferencesModal({
           <div>
             <label className="block text-lg font-semibold mb-2">Why Do We Exist?</label>
             <EditableField
-              value={info.whyExist}
+              value={organizationInfo.whyExist}
               onSave={(value) => handleSave('whyExist', value)}
               placeholder="Enter your mission..."
               multiline
@@ -78,7 +58,7 @@ export function PreferencesModal({
           <div>
             <label className="block text-lg font-semibold mb-2">How Do We Behave?</label>
             <EditableField
-              value={info.howBehave}
+              value={organizationInfo.howBehave}
               onSave={(value) => handleSave('howBehave', value)}
               placeholder="Enter your values..."
               multiline
@@ -89,7 +69,7 @@ export function PreferencesModal({
           <div>
             <label className="block text-lg font-semibold mb-2">What Do We Do?</label>
             <EditableField
-              value={info.whatDo}
+              value={organizationInfo.whatDo}
               onSave={(value) => handleSave('whatDo', value)}
               placeholder="Enter what you do..."
               multiline
@@ -100,7 +80,7 @@ export function PreferencesModal({
           <div>
             <label className="block text-lg font-semibold mb-2">How Will We Succeed?</label>
             <EditableField
-              value={info.howSucceed}
+              value={organizationInfo.howSucceed}
               onSave={(value) => handleSave('howSucceed', value)}
               placeholder="Enter success metrics..."
               multiline
