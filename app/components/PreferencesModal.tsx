@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { EditableField } from './EditableField';
 
 interface OrganizationInfo {
@@ -15,15 +15,25 @@ interface PreferencesModalProps {
   onClose: () => void;
   organizationInfo: OrganizationInfo;
   onSave: (info: OrganizationInfo) => void;
+  dashboardTitle: string;
+  onDashboardTitleChange: (value: string) => void;
 }
 
 export function PreferencesModal({
   isOpen,
   onClose,
   organizationInfo,
-  onSave
+  onSave,
+  dashboardTitle,
+  onDashboardTitleChange
 }: PreferencesModalProps) {
   const [info, setInfo] = useState(organizationInfo);
+  const [title, setTitle] = useState(dashboardTitle);
+
+  useEffect(() => {
+    setInfo(organizationInfo);
+    setTitle(dashboardTitle);
+  }, [organizationInfo, dashboardTitle]);
 
   if (!isOpen) return null;
 
@@ -39,6 +49,21 @@ export function PreferencesModal({
         <h2 className="text-3xl font-bold mb-6">Organization Preferences</h2>
 
         <div className="space-y-6">
+          <div>
+            <label className="block text-lg font-semibold mb-2">Dashboard Title</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                onDashboardTitleChange(e.target.value);
+              }}
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              placeholder="Meeting Tool"
+            />
+            <p className="text-sm text-slate-500 mt-2">Change the heading shown on the main dashboard.</p>
+          </div>
+
           <div>
             <label className="block text-lg font-semibold mb-2">Why Do We Exist?</label>
             <EditableField
