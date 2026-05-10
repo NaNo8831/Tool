@@ -34,7 +34,7 @@ export function PreferencesModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
       <div className="bg-white rounded-3xl p-8 md:p-10 max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="mb-8 space-y-3">
-          <h2 className="text-4xl md:text-5xl font-bold text-slate-950">Settings and Play Book Definitions</h2>
+          <h2 className="text-4xl md:text-5xl font-bold text-slate-950">Settings and Playbook Definitions</h2>
           <p className="text-xl text-slate-600">
             Name your team or meeting here, then define the shared play book language for the dashboard.
           </p>
