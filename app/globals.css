@@ -25,6 +25,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+
 .rich-text-toolbar-button {
   border-radius: 0.5rem;
   padding: 0.25rem 0.5rem;
@@ -32,8 +33,9 @@ body {
   transition: background-color 150ms ease, color 150ms ease;
 }
 
-.rich-text-toolbar-button:hover {
-  background: #f1f5f9;
+.rich-text-toolbar-button:hover,
+.rich-text-toolbar-button-active {
+  background: #e2e8f0;
   color: #0f172a;
 }
 
@@ -70,22 +72,30 @@ body {
   padding-left: 0.25rem;
 }
 
-.rich-text-editor:empty::before {
-  color: #94a3b8;
-  content: attr(data-placeholder);
+.rich-text-column-grid {
+  display: grid;
+  grid-template-columns: 1fr;
 }
 
-.rich-text-columns-2,
-.rich-text-columns-3 {
-  column-gap: 1.5rem;
+.rich-text-column-pane {
+  min-width: 0;
+}
+
+.rich-text-editor:focus {
+  background: rgb(239 246 255 / 0.35);
 }
 
 @media (min-width: 768px) {
-  .rich-text-columns-2 {
-    column-count: 2;
+  .rich-text-column-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .rich-text-columns-3 {
-    column-count: 3;
+  .rich-text-column-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .rich-text-column-grid-2 > .rich-text-column-pane + .rich-text-column-pane,
+  .rich-text-column-grid-3 > .rich-text-column-pane + .rich-text-column-pane {
+    border-left: 1px solid #e2e8f0;
   }
 }

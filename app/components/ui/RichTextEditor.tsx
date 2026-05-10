@@ -25,11 +25,25 @@ interface RichTextRendererProps {
   className?: string;
 }
 
-const emptyDocument = (columns: RichTextColumns = 1): RichTextDocument => ({
-  version: 1,
-  columns,
-  blocks: [{ type: "paragraph", children: [{ text: "" }] }],
-});
+type FormattingState = {
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  bulletList: boolean;
+  numberedList: boolean;
+};
+
+const emptyBlocks = (): RichTextBlock[] => [
+  { type: "paragraph", children: [{ text: "" }] },
+];
+
+const emptyFormattingState: FormattingState = {
+  bold: false,
+  italic: false,
+  underline: false,
+  bulletList: false,
+  numberedList: false,
+};
 
 const isRichTextDocument = (value: RichTextValue): value is RichTextDocument =>
   typeof value === "object" &&
@@ -64,54 +78,119 @@ const normalizeInlines = (inlines: unknown): RichTextInline[] => {
   );
 };
 
-export const normalizeRichTextValue = (
-  value: RichTextValue,
-): RichTextDocument => {
-  if (!isRichTextDocument(value)) {
-    const lines = value.split("\n");
-    return {
-      ...emptyDocument(),
-      blocks: lines.map((line) => ({
-        type: "paragraph",
-        children: [{ text: line }],
-      })),
-    };
-  }
+const normalizeBlocks = (blocks: unknown): RichTextBlock[] => {
+  if (!Array.isArray(blocks)) return emptyBlocks();
 
-  const blocks = value.blocks.map((block) => {
-    if (block.type !== "paragraph") {
-      const items = Array.isArray(block.items)
-        ? block.items.map((item) => normalizeInlines(item))
+  const normalized = blocks.map((block): RichTextBlock => {
+    if (typeof block !== "object" || block === null) {
+      return { type: "paragraph", children: [{ text: "" }] };
+    }
+
+    const candidate = block as Partial<RichTextBlock>;
+
+    if (candidate.type === "bulletList" || candidate.type === "numberedList") {
+      const items = Array.isArray(candidate.items)
+        ? candidate.items.map((item) => normalizeInlines(item))
         : [[{ text: "" }]];
 
       return {
-        type: block.type,
+        type: candidate.type,
         items: items.length > 0 ? items : [[{ text: "" }]],
       };
     }
 
     return {
-      type: "paragraph" as const,
-      children: normalizeInlines(block.children),
+      type: "paragraph",
+      children: normalizeInlines(
+        "children" in candidate ? candidate.children : undefined,
+      ),
     };
   });
 
+  return normalized.length > 0 ? normalized : emptyBlocks();
+};
+
+const flattenColumnBlocks = (columnBlocks: RichTextBlock[][]) =>
+  columnBlocks.flatMap((blocks) => blocks);
+
+const normalizeColumnBlocks = (
+  blocks: RichTextBlock[],
+  columnBlocks: unknown,
+): RichTextBlock[][] => {
+  if (!Array.isArray(columnBlocks)) return [blocks];
+
+  const normalized = columnBlocks.map((column) => normalizeBlocks(column));
+  return normalized.length > 0 ? normalized : [blocks];
+};
+
+const normalizeColumnCount = (
+  columnBlocks: RichTextBlock[][],
+  columns: RichTextColumns,
+): RichTextBlock[][] => {
+  const nextColumnBlocks = columnBlocks.slice(0, columns);
+
+  while (nextColumnBlocks.length < columns) {
+    nextColumnBlocks.push(emptyBlocks());
+  }
+
+  if (columnBlocks.length > columns) {
+    nextColumnBlocks[columns - 1] = [
+      ...nextColumnBlocks[columns - 1],
+      ...columnBlocks.slice(columns).flatMap((blocks) => blocks),
+    ];
+  }
+
+  return nextColumnBlocks;
+};
+
+export const normalizeRichTextValue = (
+  value: RichTextValue,
+): RichTextDocument => {
+  if (!isRichTextDocument(value)) {
+    const blocks = value.split("\n").map((line) => ({
+      type: "paragraph" as const,
+      children: [{ text: line }],
+    }));
+
+    return {
+      version: 1,
+      columns: 1,
+      blocks,
+      columnBlocks: [blocks],
+    };
+  }
+
+  const columns = toColumns(value.columns);
+  const blocks = normalizeBlocks(value.blocks);
+  const columnBlocks = normalizeColumnCount(
+    normalizeColumnBlocks(blocks, value.columnBlocks),
+    columns,
+  );
+
   return {
     version: 1,
-    columns: toColumns(value.columns),
-    blocks: blocks.length > 0 ? blocks : emptyDocument(value.columns).blocks,
+    columns,
+    blocks: flattenColumnBlocks(columnBlocks),
+    columnBlocks,
   };
 };
 
-const getPlainText = (documentValue: RichTextDocument) =>
-  documentValue.blocks
+const getBlocksPlainText = (blocks: RichTextBlock[]) =>
+  blocks
     .map((block) => {
-      if (block.type === "paragraph")
+      if (block.type === "paragraph") {
         return block.children.map((child) => child.text).join("");
+      }
+
       return block.items
         .map((item) => item.map((child) => child.text).join(""))
         .join("\n");
     })
+    .join("\n");
+
+const getPlainText = (documentValue: RichTextDocument) =>
+  (documentValue.columnBlocks ?? [documentValue.blocks])
+    .map((blocks) => getBlocksPlainText(blocks))
     .join("\n")
     .trim();
 
@@ -148,38 +227,114 @@ const readBlockInlines = (node: Node): RichTextInline[] =>
     })),
   );
 
-const serializeEditorContent = (
-  editor: HTMLElement,
-  columns: RichTextColumns,
-): RichTextDocument => {
+const serializeColumnContent = (editor: HTMLElement): RichTextBlock[] => {
   const blocks: RichTextBlock[] = [];
 
   Array.from(editor.childNodes).forEach((node) => {
-    if (
-      node instanceof HTMLElement &&
-      ["ul", "ol"].includes(node.tagName.toLowerCase())
-    ) {
+    if (node instanceof HTMLBRElement) {
+      blocks.push({ type: "paragraph", children: [{ text: "" }] });
+      return;
+    }
+
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent ?? "";
+      if (text.length > 0) {
+        blocks.push({ type: "paragraph", children: [{ text }] });
+      }
+      return;
+    }
+
+    if (!(node instanceof HTMLElement)) return;
+
+    const tagName = node.tagName.toLowerCase();
+    if (["ul", "ol"].includes(tagName)) {
       const items = Array.from(node.children)
         .filter((child) => child.tagName.toLowerCase() === "li")
         .map((child) => readBlockInlines(child));
 
       blocks.push({
-        type:
-          node.tagName.toLowerCase() === "ul" ? "bulletList" : "numberedList",
+        type: tagName === "ul" ? "bulletList" : "numberedList",
         items: items.length > 0 ? items : [[{ text: "" }]],
       });
       return;
     }
 
-    const children = readBlockInlines(node);
-    blocks.push({ type: "paragraph", children });
+    const listChild = Array.from(node.children).find((child) =>
+      ["ul", "ol"].includes(child.tagName.toLowerCase()),
+    );
+
+    if (listChild instanceof HTMLElement) {
+      const listTagName = listChild.tagName.toLowerCase();
+      const items = Array.from(listChild.children)
+        .filter((child) => child.tagName.toLowerCase() === "li")
+        .map((child) => readBlockInlines(child));
+
+      blocks.push({
+        type: listTagName === "ul" ? "bulletList" : "numberedList",
+        items: items.length > 0 ? items : [[{ text: "" }]],
+      });
+      return;
+    }
+
+    blocks.push({ type: "paragraph", children: readBlockInlines(node) });
   });
 
-  return {
-    version: 1,
-    columns,
-    blocks: blocks.length > 0 ? blocks : emptyDocument(columns).blocks,
-  };
+  return blocks.length > 0 ? blocks : emptyBlocks();
+};
+
+const createInlineNodes = (inline: RichTextInline): Node[] => {
+  const textNode = document.createTextNode(inline.text);
+  let current: Node = textNode;
+
+  if (inline.underline) {
+    const underline = document.createElement("u");
+    underline.append(current);
+    current = underline;
+  }
+
+  if (inline.italic) {
+    const italic = document.createElement("em");
+    italic.append(current);
+    current = italic;
+  }
+
+  if (inline.bold) {
+    const bold = document.createElement("strong");
+    bold.append(current);
+    current = bold;
+  }
+
+  return [current];
+};
+
+const appendInlines = (element: HTMLElement, inlines: RichTextInline[]) => {
+  const inlineNodes = compactInlines(inlines).flatMap(createInlineNodes);
+  if (inlineNodes.every((node) => node.textContent === "")) {
+    element.append(document.createElement("br"));
+    return;
+  }
+
+  element.append(...inlineNodes);
+};
+
+const createBlockNode = (block: RichTextBlock): HTMLElement => {
+  if (block.type !== "paragraph") {
+    const list = document.createElement(block.type === "bulletList" ? "ul" : "ol");
+    block.items.forEach((item) => {
+      const listItem = document.createElement("li");
+      appendInlines(listItem, item);
+      list.append(listItem);
+    });
+    return list;
+  }
+
+  const paragraph = document.createElement("p");
+  appendInlines(paragraph, block.children);
+  return paragraph;
+};
+
+const setEditorBlocks = (editor: HTMLElement, blocks: RichTextBlock[]) => {
+  editor.replaceChildren(...blocks.map(createBlockNode));
 };
 
 const renderInline = (inline: RichTextInline, index: number) => {
@@ -190,8 +345,8 @@ const renderInline = (inline: RichTextInline, index: number) => {
   return <span key={index}>{content}</span>;
 };
 
-const renderBlocks = (documentValue: RichTextDocument) =>
-  documentValue.blocks.map((block, blockIndex) => {
+const renderBlocks = (blocks: RichTextBlock[]) =>
+  blocks.map((block, blockIndex) => {
     if (block.type === "bulletList") {
       return (
         <ul key={blockIndex}>
@@ -219,6 +374,31 @@ const renderBlocks = (documentValue: RichTextDocument) =>
     return null;
   });
 
+const serializeEditors = (
+  editors: Array<HTMLDivElement | null>,
+  columns: RichTextColumns,
+): RichTextDocument => {
+  const columnBlocks = editors
+    .slice(0, columns)
+    .map((editor) => (editor ? serializeColumnContent(editor) : emptyBlocks()));
+  const normalizedColumnBlocks = normalizeColumnCount(columnBlocks, columns);
+
+  return {
+    version: 1,
+    columns,
+    blocks: flattenColumnBlocks(normalizedColumnBlocks),
+    columnBlocks: normalizedColumnBlocks,
+  };
+};
+
+const queryCommandState = (command: string) => {
+  try {
+    return document.queryCommandState(command);
+  } catch {
+    return false;
+  }
+};
+
 export function RichTextRenderer({
   value,
   placeholder,
@@ -226,6 +406,7 @@ export function RichTextRenderer({
 }: RichTextRendererProps) {
   const documentValue = normalizeRichTextValue(value);
   const hasContent = getPlainText(documentValue).length > 0;
+  const columnBlocks = documentValue.columnBlocks ?? [documentValue.blocks];
 
   if (!hasContent && placeholder) {
     return (
@@ -235,9 +416,13 @@ export function RichTextRenderer({
 
   return (
     <div
-      className={`rich-text-content rich-text-columns-${documentValue.columns} ${className}`}
+      className={`rich-text-renderer rich-text-column-grid rich-text-column-grid-${documentValue.columns} ${className}`}
     >
-      {renderBlocks(documentValue)}
+      {columnBlocks.slice(0, documentValue.columns).map((blocks, index) => (
+        <div key={index} className="rich-text-content rich-text-column-pane">
+          {renderBlocks(blocks)}
+        </div>
+      ))}
     </div>
   );
 }
@@ -253,9 +438,23 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const initialDocument = useMemo(() => normalizeRichTextValue(value), [value]);
   const [documentValue, setDocumentValue] = useState(initialDocument);
-  const [hasContent, setHasContent] = useState(getPlainText(initialDocument).length > 0);
-  const editorRef = useRef<HTMLDivElement>(null);
+  const [hasContent, setHasContent] = useState(
+    getPlainText(initialDocument).length > 0,
+  );
+  const [formattingState, setFormattingState] = useState(emptyFormattingState);
+  const editorRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const activeEditorIndexRef = useRef(0);
   const lastPublishedRef = useRef(JSON.stringify(initialDocument));
+
+  const updateFormattingState = () => {
+    setFormattingState({
+      bold: queryCommandState("bold"),
+      italic: queryCommandState("italic"),
+      underline: queryCommandState("underline"),
+      bulletList: queryCommandState("insertUnorderedList"),
+      numberedList: queryCommandState("insertOrderedList"),
+    });
+  };
 
   useEffect(() => {
     const normalized = normalizeRichTextValue(value);
@@ -267,13 +466,31 @@ export function RichTextEditor({
     lastPublishedRef.current = serialized;
   }, [value]);
 
-  const publishCurrentContent = (nextColumns = documentValue.columns) => {
-    if (!editorRef.current) return;
+  useEffect(() => {
+    const columnBlocks = documentValue.columnBlocks ?? [documentValue.blocks];
 
-    const nextDocument = serializeEditorContent(editorRef.current, nextColumns);
+    editorRefs.current.forEach((editor, index) => {
+      if (!editor || index >= documentValue.columns) return;
+      setEditorBlocks(editor, columnBlocks[index] ?? emptyBlocks());
+    });
+  }, [documentValue]);
+
+  useEffect(() => {
+    document.addEventListener("selectionchange", updateFormattingState);
+    return () => document.removeEventListener("selectionchange", updateFormattingState);
+  }, []);
+
+  const publishCurrentContent = (nextColumns = documentValue.columns) => {
+    const nextDocument = serializeEditors(editorRefs.current, nextColumns);
     setHasContent(getPlainText(nextDocument).length > 0);
     lastPublishedRef.current = JSON.stringify(nextDocument);
     onChange(nextDocument);
+  };
+
+  const focusActiveEditor = () => {
+    const activeEditor = editorRefs.current[activeEditorIndexRef.current]
+      ?? editorRefs.current[0];
+    activeEditor?.focus();
   };
 
   const applyCommand = (
@@ -284,21 +501,36 @@ export function RichTextEditor({
       | "insertUnorderedList"
       | "insertOrderedList",
   ) => {
-    editorRef.current?.focus();
+    focusActiveEditor();
+    document.execCommand("styleWithCSS", false, "false");
     document.execCommand(command);
     publishCurrentContent();
+    updateFormattingState();
   };
 
   const updateColumns = (columns: RichTextColumns) => {
-    const nextDocument = editorRef.current
-      ? serializeEditorContent(editorRef.current, columns)
-      : { ...documentValue, columns };
+    const currentDocument = serializeEditors(
+      editorRefs.current,
+      documentValue.columns,
+    );
+    const currentColumnBlocks = currentDocument.columnBlocks ?? [currentDocument.blocks];
+    const nextColumnBlocks = normalizeColumnCount(currentColumnBlocks, columns);
+    const nextDocument: RichTextDocument = {
+      version: 1,
+      columns,
+      blocks: flattenColumnBlocks(nextColumnBlocks),
+      columnBlocks: nextColumnBlocks,
+    };
 
+    activeEditorIndexRef.current = Math.min(activeEditorIndexRef.current, columns - 1);
     setDocumentValue(nextDocument);
     setHasContent(getPlainText(nextDocument).length > 0);
     lastPublishedRef.current = JSON.stringify(nextDocument);
     onChange(nextDocument);
   };
+
+  const toolbarButtonClass = (active: boolean, extraClassName = "") =>
+    `rich-text-toolbar-button ${active ? "rich-text-toolbar-button-active" : ""} ${extraClassName}`;
 
   return (
     <div
@@ -309,8 +541,9 @@ export function RichTextEditor({
           type="button"
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => applyCommand("bold")}
-          className="rich-text-toolbar-button font-bold"
+          className={toolbarButtonClass(formattingState.bold, "font-bold")}
           aria-label="Bold"
+          aria-pressed={formattingState.bold}
         >
           B
         </button>
@@ -318,8 +551,9 @@ export function RichTextEditor({
           type="button"
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => applyCommand("italic")}
-          className="rich-text-toolbar-button italic"
+          className={toolbarButtonClass(formattingState.italic, "italic")}
           aria-label="Italic"
+          aria-pressed={formattingState.italic}
         >
           I
         </button>
@@ -327,8 +561,9 @@ export function RichTextEditor({
           type="button"
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => applyCommand("underline")}
-          className="rich-text-toolbar-button underline"
+          className={toolbarButtonClass(formattingState.underline, "underline")}
           aria-label="Underline"
+          aria-pressed={formattingState.underline}
         >
           U
         </button>
@@ -337,19 +572,21 @@ export function RichTextEditor({
           type="button"
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => applyCommand("insertUnorderedList")}
-          className="rich-text-toolbar-button"
-          aria-label="Bullet list"
+          className={toolbarButtonClass(formattingState.bulletList)}
+          aria-label="Bullet dots"
+          aria-pressed={formattingState.bulletList}
         >
-          • List
+          •••
         </button>
         <button
           type="button"
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => applyCommand("insertOrderedList")}
-          className="rich-text-toolbar-button"
-          aria-label="Numbered list"
+          className={toolbarButtonClass(formattingState.numberedList)}
+          aria-label="Numbers"
+          aria-pressed={formattingState.numberedList}
         >
-          1. List
+          1.2.
         </button>
         <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
         <div
@@ -363,7 +600,7 @@ export function RichTextEditor({
               type="button"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => updateColumns(columns as RichTextColumns)}
-              className={`rich-text-toolbar-button ${documentValue.columns === columns ? "bg-slate-200 text-slate-950" : ""}`}
+              className={toolbarButtonClass(documentValue.columns === columns)}
               aria-pressed={documentValue.columns === columns}
             >
               {columns}
@@ -379,17 +616,35 @@ export function RichTextEditor({
           </div>
         ) : null}
         <div
-          ref={editorRef}
-          contentEditable
-          suppressContentEditableWarning
-          role="textbox"
-          aria-label={ariaLabel}
-          aria-multiline="true"
-          onInput={() => publishCurrentContent()}
-          onBlur={() => publishCurrentContent()}
-          className={`rich-text-editor rich-text-content rich-text-columns-${documentValue.columns} ${minHeightClassName} px-4 py-3 text-slate-900 outline-none ${editorClassName}`}
+          className={`rich-text-column-grid rich-text-column-grid-${documentValue.columns}`}
         >
-          {renderBlocks(documentValue)}
+          {Array.from({ length: documentValue.columns }, (_, index) => (
+            <div
+              key={index}
+              ref={(node) => {
+                editorRefs.current[index] = node;
+              }}
+              contentEditable
+              suppressContentEditableWarning
+              role="textbox"
+              aria-label={
+                documentValue.columns === 1
+                  ? ariaLabel
+                  : `${ariaLabel} column ${index + 1}`
+              }
+              aria-multiline="true"
+              data-placeholder={placeholder}
+              onFocus={() => {
+                activeEditorIndexRef.current = index;
+                updateFormattingState();
+              }}
+              onKeyUp={updateFormattingState}
+              onMouseUp={updateFormattingState}
+              onInput={() => publishCurrentContent()}
+              onBlur={() => publishCurrentContent()}
+              className={`rich-text-editor rich-text-content rich-text-column-pane ${minHeightClassName} px-4 py-3 text-slate-900 outline-none ${editorClassName}`}
+            />
+          ))}
         </div>
       </div>
     </div>

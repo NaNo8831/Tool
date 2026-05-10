@@ -23,6 +23,7 @@ export interface RichTextDocument {
   version: 1;
   columns: RichTextColumns;
   blocks: RichTextBlock[];
+  columnBlocks?: RichTextBlock[][];
 }
 
 export type RichTextValue = string | RichTextDocument;
