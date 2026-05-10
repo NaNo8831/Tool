@@ -3,12 +3,13 @@ import type { MeetingSectionKey, OrganizationInfo } from '@/app/types/dashboard'
 
 export const defaultOrganizationInfo: OrganizationInfo = {
   whyExist: 'To help people encounter Jesus and grow in faith.',
+  rallyCry: '',
   howBehave: 'Childlike Hearts • Loyal Servants • Hungry for More',
   whatDo: 'We disciple people, build community, and equip leaders.',
   howSucceed: 'Through intentional leadership and accountability.'
 };
 
-export const defaultDashboardTitle = 'Leadership Objectives Dashboard';
+export const defaultDashboardTitle = 'Meeting Tool by LyArk';
 
 export const defaultMeetingSectionOrder: MeetingSectionKey[] = ['agenda', 'topic', 'decision', 'cascade'];
 

@@ -39,6 +39,7 @@ export default function Home() {
   const [taskInputs, setTaskInputs] = useState<Record<number, TaskInput>>({});
   const [draggingObjectiveId, setDraggingObjectiveId] = useState<number | null>(null);
   const [draggingMeetingSection, setDraggingMeetingSection] = useState<MeetingSectionKey | null>(null);
+  const organizationInfoWithDefaults = { ...defaultOrganizationInfo, ...organizationInfo };
 
   const updateObjectiveTitle = (id: number, newTitle: string) => {
     setObjectives(objectives.map((obj) =>
@@ -298,7 +299,7 @@ export default function Home() {
         <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
           <div>
             <h1 className="text-5xl font-bold text-slate-900">{dashboardTitle}</h1>
-            <p className="text-slate-700 mt-3 text-lg">Strategic planning and accountability platform</p>
+            <p className="text-slate-600 mt-3 text-lg">Name your team or meeting from the settings menu.</p>
           </div>
 
           <button
@@ -310,22 +311,32 @@ export default function Home() {
           </button>
         </div>
 
-        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 mb-10">
-          <div className="bg-white rounded-3xl p-5 shadow">
-            <h2 className="font-bold text-lg mb-3 text-black">Why Do We Exist?</h2>
-            {renderMissionValue(organizationInfo.whyExist)}
-          </div>
-          <div className="bg-white rounded-3xl p-5 shadow">
-            <h2 className="font-bold text-lg mb-3 text-black">How Do We Behave?</h2>
-            {renderMissionValue(organizationInfo.howBehave)}
-          </div>
-          <div className="bg-white rounded-3xl p-5 shadow">
-            <h2 className="font-bold text-lg mb-3 text-black">What Do We Do?</h2>
-            {renderMissionValue(organizationInfo.whatDo)}
-          </div>
-          <div className="bg-white rounded-3xl p-5 shadow">
-            <h2 className="font-bold text-lg mb-3 text-black">How Will We Succeed?</h2>
-            {renderMissionValue(organizationInfo.howSucceed)}
+        <div className="mb-10 space-y-5">
+          <section className="bg-white rounded-3xl p-6 md:p-8 shadow border-l-8 border-blue-500">
+            <h2 className="font-bold text-2xl mb-4 text-black">Why Do We Exist?</h2>
+            <div className="text-lg leading-relaxed">{renderMissionValue(organizationInfoWithDefaults.whyExist)}</div>
+          </section>
+
+          <section className="bg-amber-50 rounded-3xl p-6 md:p-8 shadow border border-amber-100">
+            <h2 className="font-bold text-2xl mb-4 text-black">Rally Cry</h2>
+            <p className="text-3xl font-bold leading-snug text-slate-900 whitespace-pre-line">
+              {organizationInfoWithDefaults.rallyCry || 'Rally Cry'}
+            </p>
+          </section>
+
+          <div className="grid md:grid-cols-3 gap-5">
+            <div className="bg-white rounded-3xl p-5 shadow">
+              <h2 className="font-bold text-lg mb-3 text-black">How Do We Behave?</h2>
+              {renderMissionValue(organizationInfoWithDefaults.howBehave)}
+            </div>
+            <div className="bg-white rounded-3xl p-5 shadow">
+              <h2 className="font-bold text-lg mb-3 text-black">What Do We Do?</h2>
+              {renderMissionValue(organizationInfoWithDefaults.whatDo)}
+            </div>
+            <div className="bg-white rounded-3xl p-5 shadow">
+              <h2 className="font-bold text-lg mb-3 text-black">How Will We Succeed?</h2>
+              {renderMissionValue(organizationInfoWithDefaults.howSucceed)}
+            </div>
           </div>
         </div>
 
@@ -381,7 +392,7 @@ export default function Home() {
       <PreferencesModal
         isOpen={showPreferences}
         onClose={() => setShowPreferences(false)}
-        organizationInfo={organizationInfo}
+        organizationInfo={organizationInfoWithDefaults}
         onSave={setOrganizationInfo}
         dashboardTitle={dashboardTitle}
         onDashboardTitleChange={setDashboardTitle}

@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 
 export interface OrganizationInfo {
   whyExist: string;
+  rallyCry: string;
   howBehave: string;
   whatDo: string;
   howSucceed: string;

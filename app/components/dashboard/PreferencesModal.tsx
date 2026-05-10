@@ -26,72 +26,106 @@ export function PreferencesModal({
     onSave({ ...organizationInfo, [field]: value });
   };
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-3xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <h2 className="text-3xl font-bold mb-6">Organization Preferences</h2>
+  const fieldClasses = 'bg-blue-50 p-5 rounded-2xl text-xl leading-relaxed text-slate-800 min-h-24';
+  const editorClasses = 'text-xl leading-relaxed';
+  const actionClasses = 'px-5 py-2 text-lg';
 
-        <div className="space-y-6">
-          <div>
-            <label className="block text-lg font-semibold mb-2">Dashboard Title</label>
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
+      <div className="bg-white rounded-3xl p-8 md:p-10 max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="mb-8 space-y-3">
+          <h2 className="text-4xl md:text-5xl font-bold text-slate-950">Settings and Play Book Definitions</h2>
+          <p className="text-xl text-slate-600">
+            Name your team or meeting here, then define the shared play book language for the dashboard.
+          </p>
+        </div>
+
+        <div className="space-y-8 text-xl">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+            <label className="block text-2xl font-semibold mb-3 text-slate-950">Team or Meeting Name</label>
             <input
               type="text"
               value={dashboardTitle}
               onChange={(e) => onDashboardTitleChange(e.target.value)}
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300"
-              placeholder="Meeting Tool"
+              className="w-full px-5 py-4 border border-slate-300 rounded-xl text-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              placeholder="Name your team or meeting"
             />
-            <p className="text-sm text-slate-500 mt-2">Change the heading shown on the main dashboard.</p>
+            <p className="text-lg text-slate-500 mt-3">
+              This name appears in the dashboard header so everyone knows which team or meeting this space supports.
+            </p>
           </div>
 
-          <div>
-            <label className="block text-lg font-semibold mb-2">Why Do We Exist?</label>
+          <section className="rounded-3xl border border-blue-100 bg-blue-50/80 p-6 shadow-sm">
+            <label className="block text-3xl font-bold mb-4 text-slate-950">Why Do We Exist?</label>
             <EditableField
               value={organizationInfo.whyExist}
               onSave={(value) => handleSave('whyExist', value)}
               placeholder="Enter your mission..."
               multiline
-              className="bg-blue-50 p-3 rounded"
+              className="bg-white/80 p-5 rounded-2xl text-2xl leading-relaxed text-slate-900 min-h-28"
+              editorClassName="text-2xl leading-relaxed min-h-[160px]"
+              actionClassName={actionClasses}
             />
-          </div>
+          </section>
 
-          <div>
-            <label className="block text-lg font-semibold mb-2">How Do We Behave?</label>
+          <section className="rounded-3xl border border-amber-100 bg-amber-50/80 p-6 shadow-sm">
+            <label className="block text-3xl font-bold mb-4 text-slate-950">Rally Cry</label>
             <EditableField
-              value={organizationInfo.howBehave}
-              onSave={(value) => handleSave('howBehave', value)}
-              placeholder="Enter your values..."
+              value={organizationInfo.rallyCry}
+              onSave={(value) => handleSave('rallyCry', value)}
+              placeholder="Rally Cry"
               multiline
-              className="bg-blue-50 p-3 rounded"
+              className="bg-white/80 p-5 rounded-2xl text-3xl font-bold leading-snug text-slate-950 min-h-24"
+              editorClassName="text-3xl font-bold leading-snug min-h-[140px]"
+              actionClassName={actionClasses}
             />
-          </div>
+          </section>
 
-          <div>
-            <label className="block text-lg font-semibold mb-2">What Do We Do?</label>
-            <EditableField
-              value={organizationInfo.whatDo}
-              onSave={(value) => handleSave('whatDo', value)}
-              placeholder="Enter what you do..."
-              multiline
-              className="bg-blue-50 p-3 rounded"
-            />
-          </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 p-5">
+              <label className="block text-2xl font-semibold mb-3 text-slate-950">How Do We Behave?</label>
+              <EditableField
+                value={organizationInfo.howBehave}
+                onSave={(value) => handleSave('howBehave', value)}
+                placeholder="Enter your values..."
+                multiline
+                className={fieldClasses}
+                editorClassName={editorClasses}
+                actionClassName={actionClasses}
+              />
+            </div>
 
-          <div>
-            <label className="block text-lg font-semibold mb-2">How Will We Succeed?</label>
-            <EditableField
-              value={organizationInfo.howSucceed}
-              onSave={(value) => handleSave('howSucceed', value)}
-              placeholder="Enter success metrics..."
-              multiline
-              className="bg-blue-50 p-3 rounded"
-            />
+            <div className="rounded-2xl border border-slate-200 p-5">
+              <label className="block text-2xl font-semibold mb-3 text-slate-950">What Do We Do?</label>
+              <EditableField
+                value={organizationInfo.whatDo}
+                onSave={(value) => handleSave('whatDo', value)}
+                placeholder="Enter what you do..."
+                multiline
+                className={fieldClasses}
+                editorClassName={editorClasses}
+                actionClassName={actionClasses}
+              />
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 p-5 md:col-span-2">
+              <label className="block text-2xl font-semibold mb-3 text-slate-950">How Will We Succeed?</label>
+              <EditableField
+                value={organizationInfo.howSucceed}
+                onSave={(value) => handleSave('howSucceed', value)}
+                placeholder="Enter success metrics..."
+                multiline
+                className={fieldClasses}
+                editorClassName={editorClasses}
+                actionClassName={actionClasses}
+              />
+            </div>
           </div>
         </div>
 
         <button
           onClick={onClose}
-          className="mt-6 px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          className="mt-8 px-8 py-3 bg-blue-600 text-white rounded-xl text-xl font-semibold hover:bg-blue-700"
         >
           Close
         </button>
