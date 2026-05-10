@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { taskStatusOptions } from '@/app/lib/objectiveOptions';
-import { MarkdownPreview } from '@/app/components/ui/MarkdownPreview';
 import type { Subtask, Task, TaskComment } from '@/app/types/objective';
 
 interface TaskDetailsModalProps {
@@ -185,34 +184,16 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
               />
             </label>
 
-            <div className="space-y-3">
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">Description</span>
-                <textarea
-                  value={task.description ?? ''}
-                  onChange={(event) => handleUpdate({ description: event.target.value })}
-                  placeholder="Add context, goals, links, or acceptance criteria for this task."
-                  rows={8}
-                  className="w-full resize-y rounded-2xl border border-slate-300 px-4 py-3 text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                />
-              </label>
-              <p className="text-xs text-slate-500">
-                Markdown-style notes are supported: # headings, **bold**, *italic*, `code`, - bullets, 1. steps, and links.
-              </p>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-semibold text-slate-800">Description preview</h3>
-                  <span className="rounded-full bg-white px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                    Markdown
-                  </span>
-                </div>
-                {task.description?.trim() ? (
-                  <MarkdownPreview value={task.description} />
-                ) : (
-                  <p className="text-sm text-slate-500">Preview appears here as you add description details.</p>
-                )}
-              </div>
-            </div>
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-slate-700">Description</span>
+              <textarea
+                value={task.description ?? ''}
+                onChange={(event) => handleUpdate({ description: event.target.value })}
+                placeholder="Add context, goals, links, or acceptance criteria for this task."
+                rows={8}
+                className="w-full resize-y rounded-2xl border border-slate-300 px-4 py-3 text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              />
+            </label>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
