@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type DragEvent } from 'react';
+import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import { PreferencesModal } from '@/app/components/dashboard/PreferencesModal';
 import { MeetingSection } from '@/app/components/meeting/MeetingSection';
 import { ObjectiveCard } from '@/app/components/objectives/ObjectiveCard';
@@ -44,13 +44,22 @@ const readLegacyMeetingItems = (key: string): MeetingItem[] => {
   }
 };
 
-const getInitialMeetings = (): MeetingRecord[] => [{
+const getInitialMeetings = (): MeetingRecord[] => [createBlankMeeting()];
+
+const getLegacyMeeting = (): MeetingRecord => ({
   ...createBlankMeeting(),
   agendaItems: readLegacyMeetingItems('leadership-agenda-items'),
   topicItems: readLegacyMeetingItems('leadership-topic-items'),
   decisionItems: readLegacyMeetingItems('leadership-decision-items'),
   cascadeItems: readLegacyMeetingItems('leadership-cascade-items')
-}];
+});
+
+const hasMeetingItems = (meeting: MeetingRecord) => [
+  meeting.agendaItems,
+  meeting.topicItems,
+  meeting.decisionItems,
+  meeting.cascadeItems
+].some((items) => items.length > 0);
 
 export default function Home() {
   const initialMeetings = useMemo(() => getInitialMeetings(), []);
@@ -77,6 +86,20 @@ export default function Home() {
   const activeMeeting = meetings[activeMeetingIndex] ?? initialMeetings[0];
   const canNavigateToPreviousMeeting = activeMeetingIndex > 0;
   const canNavigateToNextMeeting = activeMeetingIndex < meetings.length - 1;
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (window.localStorage.getItem('leadership-meetings') !== null) return;
+
+      const legacyMeeting = getLegacyMeeting();
+      if (!hasMeetingItems(legacyMeeting)) return;
+
+      setMeetings([legacyMeeting]);
+      setActiveMeetingId(legacyMeeting.id);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [setActiveMeetingId, setMeetings]);
 
   const updateObjectiveTitle = (id: number, newTitle: string) => {
     setObjectives(objectives.map((obj) =>
@@ -137,7 +160,6 @@ export default function Home() {
   const addObjective = () => {
     const nextId = Date.now();
     setObjectives([
-      ...objectives,
       {
         id: nextId,
         title: 'New Objective',
@@ -147,7 +169,8 @@ export default function Home() {
         dueDate: '',
         color: 'green',
         tasks: []
-      }
+      },
+      ...objectives
     ]);
   };
 
