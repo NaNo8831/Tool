@@ -337,8 +337,10 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
               />
             </label>
 
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-slate-700">Description</span>
+            <section className="block" aria-labelledby="task-description-heading">
+              <h3 id="task-description-heading" className="mb-2 text-sm font-semibold text-slate-700">
+                Description
+              </h3>
               <RichTextEditor
                 value={task.description ?? ''}
                 onChange={(value) => handleUpdate({ description: value })}
@@ -346,7 +348,7 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
                 minHeightClassName="min-h-[220px]"
                 ariaLabel="Task description"
               />
-            </label>
+            </section>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
