@@ -23,6 +23,8 @@ import type { RichTextValue } from '@/app/types/richText';
 
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
 
+const strategicTopicsStorageKey = 'leadership-strategic-topic-items';
+
 const createBlankMeeting = (): MeetingRecord => ({
   id: Date.now(),
   date: getTodayDate(),
@@ -57,10 +59,39 @@ const getLegacyMeeting = (): MeetingRecord => ({
 
 const hasMeetingItems = (meeting: MeetingRecord) => [
   meeting.agendaItems,
-  meeting.topicItems,
   meeting.decisionItems,
   meeting.cascadeItems
 ].some((items) => items.length > 0);
+
+const dedupeMeetingItems = (items: MeetingItem[]): MeetingItem[] => {
+  const seenItems = new Set<string>();
+
+  return items.filter((item) => {
+    const itemKey = item.text.trim().toLocaleLowerCase();
+    if (!itemKey || seenItems.has(itemKey)) return false;
+
+    seenItems.add(itemKey);
+    return true;
+  });
+};
+
+const getLegacyStrategicTopics = (): MeetingItem[] => {
+  const legacyTopicItems = readLegacyMeetingItems('leadership-topic-items');
+
+  if (typeof window === 'undefined') return legacyTopicItems;
+
+  const storedMeetingsValue = window.localStorage.getItem('leadership-meetings');
+  if (storedMeetingsValue === null) return legacyTopicItems;
+
+  try {
+    const storedMeetings = JSON.parse(storedMeetingsValue) as MeetingRecord[];
+    const meetingTopicItems = storedMeetings.flatMap((meeting) => meeting.topicItems ?? []);
+
+    return dedupeMeetingItems([...legacyTopicItems, ...meetingTopicItems]);
+  } catch {
+    return legacyTopicItems;
+  }
+};
 
 export default function Home() {
   const initialMeetings = useMemo(() => getInitialMeetings(), []);
@@ -92,6 +123,7 @@ export default function Home() {
     'leadership-meeting-section-order',
     defaultMeetingSectionOrder
   );
+  const [strategicTopicItems, setStrategicTopicItems] = useLocalStorage<MeetingItem[]>(strategicTopicsStorageKey, []);
   const [newAgendaItem, setNewAgendaItem] = useState('');
   const [newTopicItem, setNewTopicItem] = useState('');
   const [newDecisionItem, setNewDecisionItem] = useState('');
@@ -118,6 +150,19 @@ export default function Home() {
 
     return () => window.clearTimeout(timeoutId);
   }, [setActiveMeetingId, setMeetings]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (window.localStorage.getItem(strategicTopicsStorageKey) !== null) return;
+
+      const legacyStrategicTopics = getLegacyStrategicTopics();
+      if (legacyStrategicTopics.length === 0) return;
+
+      setStrategicTopicItems(legacyStrategicTopics);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [setStrategicTopicItems]);
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -149,7 +194,7 @@ export default function Home() {
   const addMeetingItem = (
     value: string,
     setValue: (value: string) => void,
-    sectionKey: keyof Pick<MeetingRecord, 'agendaItems' | 'topicItems' | 'decisionItems' | 'cascadeItems'>
+    sectionKey: keyof Pick<MeetingRecord, 'agendaItems' | 'decisionItems' | 'cascadeItems'>
   ) => {
     if (!value.trim()) return;
     updateActiveMeeting({
@@ -159,7 +204,7 @@ export default function Home() {
   };
 
   const updateMeetingItem = (
-    sectionKey: keyof Pick<MeetingRecord, 'agendaItems' | 'topicItems' | 'decisionItems' | 'cascadeItems'>,
+    sectionKey: keyof Pick<MeetingRecord, 'agendaItems' | 'decisionItems' | 'cascadeItems'>,
     itemId: number,
     value: string
   ) => {
@@ -169,7 +214,7 @@ export default function Home() {
   };
 
   const deleteMeetingItem = (
-    sectionKey: keyof Pick<MeetingRecord, 'agendaItems' | 'topicItems' | 'decisionItems' | 'cascadeItems'>,
+    sectionKey: keyof Pick<MeetingRecord, 'agendaItems' | 'decisionItems' | 'cascadeItems'>,
     itemId: number
   ) => {
     updateActiveMeeting({
@@ -177,12 +222,26 @@ export default function Home() {
     });
   };
 
+  const addStrategicTopicItem = () => {
+    if (!newTopicItem.trim()) return;
+
+    setStrategicTopicItems([...strategicTopicItems, { id: Date.now(), text: newTopicItem.trim() }]);
+    setNewTopicItem('');
+  };
+
+  const updateStrategicTopicItem = (itemId: number, value: string) => {
+    setStrategicTopicItems(strategicTopicItems.map((item) => (item.id === itemId ? { ...item, text: value } : item)));
+  };
+
+  const deleteStrategicTopicItem = (itemId: number) => {
+    setStrategicTopicItems(strategicTopicItems.filter((item) => item.id !== itemId));
+  };
+
   const createNewMeeting = () => {
     const newMeeting = createBlankMeeting();
     setMeetings([...meetings, newMeeting]);
     setActiveMeetingId(newMeeting.id);
     setNewAgendaItem('');
-    setNewTopicItem('');
     setNewDecisionItem('');
     setNewCascadeItem('');
   };
@@ -193,7 +252,6 @@ export default function Home() {
     if (!nextMeeting) return;
     setActiveMeetingId(nextMeeting.id);
     setNewAgendaItem('');
-    setNewTopicItem('');
     setNewDecisionItem('');
     setNewCascadeItem('');
   };
@@ -216,12 +274,12 @@ export default function Home() {
       id: 'topic',
       title: 'Potential Strategic Topics',
       description: 'Capture high-level topics for the meeting.',
-      items: activeMeeting.topicItems,
+      items: strategicTopicItems,
       newItem: newTopicItem,
       setNewItem: setNewTopicItem,
-      addItem: () => addMeetingItem(newTopicItem, setNewTopicItem, 'topicItems'),
-      updateItem: (itemId, value) => updateMeetingItem('topicItems', itemId, value),
-      deleteItem: (itemId) => deleteMeetingItem('topicItems', itemId),
+      addItem: addStrategicTopicItem,
+      updateItem: updateStrategicTopicItem,
+      deleteItem: deleteStrategicTopicItem,
       placeholder: 'New strategic topic',
       editPlaceholder: 'Add strategic topic'
     },
