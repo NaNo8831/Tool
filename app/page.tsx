@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import { PreferencesModal } from '@/app/components/dashboard/PreferencesModal';
 import { MeetingSection } from '@/app/components/meeting/MeetingSection';
 import { ObjectiveCard } from '@/app/components/objectives/ObjectiveCard';
+import { TaskDetailsModal } from '@/app/components/objectives/TaskDetailsModal';
 import { useLocalStorage } from '@/app/hooks/useLocalStorage';
 import {
   defaultDashboardTitle,
@@ -17,7 +18,7 @@ import type {
   MeetingSectionKey,
   TaskInput
 } from '@/app/types/dashboard';
-import type { Objective, Task } from '@/app/types/objective';
+import type { Objective, Subtask, Task } from '@/app/types/objective';
 import { objectivesData } from '@/data/objectives';
 
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
@@ -61,6 +62,70 @@ const hasMeetingItems = (meeting: MeetingRecord) => [
   meeting.cascadeItems
 ].some((items) => items.length > 0);
 
+
+type StoredSubtask = Partial<Subtask>;
+type StoredTask = Partial<Omit<Task, 'subtasks'>> & {
+  id: number;
+  title: string;
+  subtasks?: StoredSubtask[];
+};
+
+const normalizeTask = (task: StoredTask): { task: Task; changed: boolean } => {
+  const subtasks = Array.isArray(task.subtasks)
+    ? task.subtasks.map((subtask, subtaskIndex) => ({
+        id: subtask.id ?? task.id + subtaskIndex + 1,
+        title: subtask.title ?? '',
+        completed: subtask.completed ?? false
+      }))
+    : [];
+
+  const normalizedTask: Task = {
+    id: task.id,
+    title: task.title,
+    description: task.description ?? '',
+    dueDate: task.dueDate ?? '',
+    subtasks,
+    assignedTo: task.assignedTo ?? '',
+    status: task.status ?? 'planning'
+  };
+
+  const changed = task.description === undefined
+    || task.dueDate === undefined
+    || task.assignedTo === undefined
+    || task.status === undefined
+    || !Array.isArray(task.subtasks)
+    || subtasks.some((subtask, subtaskIndex) => {
+      const storedSubtask = task.subtasks?.[subtaskIndex];
+      return storedSubtask?.id === undefined
+        || storedSubtask.title === undefined
+        || storedSubtask.completed === undefined;
+    });
+
+  return { task: normalizedTask, changed };
+};
+
+const normalizeObjectives = (storedObjectives: Objective[]): { objectives: Objective[]; changed: boolean } => {
+  let changed = false;
+
+  const objectives = storedObjectives.map((objective) => {
+    const storedTasks = Array.isArray(objective.tasks) ? objective.tasks : [];
+    if (!Array.isArray(objective.tasks)) changed = true;
+
+    const tasks = storedTasks.map((task) => {
+      const normalized = normalizeTask(task as StoredTask);
+      if (normalized.changed) changed = true;
+      return normalized.task;
+    });
+
+    return {
+      ...objective,
+      tasks
+    };
+  });
+
+  return { objectives, changed };
+};
+
 export default function Home() {
   const initialMeetings = useMemo(() => getInitialMeetings(), []);
   const [objectives, setObjectives] = useLocalStorage<Objective[]>('leadership-objectives', objectivesData);
@@ -78,6 +143,7 @@ export default function Home() {
   const [newCascadeItem, setNewCascadeItem] = useState('');
   const [showPreferences, setShowPreferences] = useState(false);
   const [taskInputs, setTaskInputs] = useState<Record<number, TaskInput>>({});
+  const [selectedTask, setSelectedTask] = useState<{ objectiveId: number; taskId: number } | null>(null);
   const [draggingObjectiveId, setDraggingObjectiveId] = useState<number | null>(null);
   const [draggingMeetingSection, setDraggingMeetingSection] = useState<MeetingSectionKey | null>(null);
   const organizationInfoWithDefaults = { ...defaultOrganizationInfo, ...organizationInfo };
@@ -86,6 +152,14 @@ export default function Home() {
   const activeMeeting = meetings[activeMeetingIndex] ?? initialMeetings[0];
   const canNavigateToPreviousMeeting = activeMeetingIndex > 0;
   const canNavigateToNextMeeting = activeMeetingIndex < meetings.length - 1;
+  const normalizedObjectivesResult = useMemo(() => normalizeObjectives(objectives), [objectives]);
+  const normalizedObjectives = normalizedObjectivesResult.objectives;
+  const selectedObjective = selectedTask
+    ? normalizedObjectives.find((objective) => objective.id === selectedTask.objectiveId) ?? null
+    : null;
+  const selectedTaskDetails = selectedObjective && selectedTask
+    ? selectedObjective.tasks.find((task) => task.id === selectedTask.taskId) ?? null
+    : null;
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -100,6 +174,11 @@ export default function Home() {
 
     return () => window.clearTimeout(timeoutId);
   }, [setActiveMeetingId, setMeetings]);
+
+  useEffect(() => {
+    if (!normalizedObjectivesResult.changed) return;
+    setObjectives(normalizedObjectivesResult.objectives);
+  }, [normalizedObjectivesResult, setObjectives]);
 
   const updateObjectiveTitle = (id: number, newTitle: string) => {
     setObjectives(objectives.map((obj) =>
@@ -192,6 +271,9 @@ export default function Home() {
     const newTask: Task = {
       id: Date.now(),
       title,
+      description: '',
+      dueDate: '',
+      subtasks: [],
       status: 'planning',
       assignedTo: assignee || ''
     };
@@ -205,40 +287,18 @@ export default function Home() {
     });
   };
 
-  const updateTaskStatus = (objectiveId: number, taskId: number, newStatus: Task['status']) => {
-    setObjectives(objectives.map((obj) =>
-      obj.id === objectiveId
-        ? {
-            ...obj,
-            tasks: obj.tasks.map((task) =>
-              task.id === taskId ? { ...task, status: newStatus } : task
-            )
-          }
-        : obj
-    ));
+  const openTaskDetails = (objectiveId: number, taskId: number) => {
+    setSelectedTask({ objectiveId, taskId });
   };
 
-  const updateTaskTitle = (objectiveId: number, taskId: number, newTitle: string) => {
+  const updateTask = (objectiveId: number, taskId: number, updates: Partial<Task>) => {
     setObjectives(objectives.map((obj) =>
       obj.id === objectiveId
         ? {
             ...obj,
-            tasks: obj.tasks.map((task) =>
-              task.id === taskId ? { ...task, title: newTitle } : task
-            )
-          }
-        : obj
-    ));
-  };
-
-  const updateTaskAssignee = (objectiveId: number, taskId: number, newAssignee: string) => {
-    setObjectives(objectives.map((obj) =>
-      obj.id === objectiveId
-        ? {
-            ...obj,
-            tasks: obj.tasks.map((task) =>
-              task.id === taskId ? { ...task, assignedTo: newAssignee } : task
-            )
+            tasks: obj.tasks.map((task) => (
+              task.id === taskId ? { ...task, ...updates } : task
+            ))
           }
         : obj
     ));
@@ -250,6 +310,9 @@ export default function Home() {
       obj.id === objectiveId
         ? { ...obj, tasks: obj.tasks.filter((task) => task.id !== taskId) }
         : obj
+    ));
+    setSelectedTask((current) => (
+      current?.objectiveId === objectiveId && current.taskId === taskId ? null : current
     ));
   };
 
@@ -453,7 +516,7 @@ export default function Home() {
         </div>
 
         <div className="space-y-6">
-          {objectives.map((objective) => (
+          {normalizedObjectives.map((objective) => (
             <ObjectiveCard
               key={objective.id}
               objective={objective}
@@ -467,10 +530,7 @@ export default function Home() {
               onDelete={deleteObjective}
               onTaskInputChange={updateTaskInput}
               onAddTask={addTask}
-              onUpdateTaskStatus={updateTaskStatus}
-              onUpdateTaskTitle={updateTaskTitle}
-              onUpdateTaskAssignee={updateTaskAssignee}
-              onDeleteTask={deleteTask}
+              onOpenTask={openTaskDetails}
             />
           ))}
         </div>
@@ -542,6 +602,16 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      {selectedObjective && selectedTaskDetails ? (
+        <TaskDetailsModal
+          task={selectedTaskDetails}
+          objectiveTitle={selectedObjective.title}
+          onClose={() => setSelectedTask(null)}
+          onDelete={() => deleteTask(selectedObjective.id, selectedTaskDetails.id)}
+          onUpdate={(updates) => updateTask(selectedObjective.id, selectedTaskDetails.id, updates)}
+        />
+      ) : null}
 
       <PreferencesModal
         isOpen={showPreferences}

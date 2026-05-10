@@ -1,0 +1,229 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { taskStatusOptions } from '@/app/lib/objectiveOptions';
+import type { Subtask, Task } from '@/app/types/objective';
+
+interface TaskDetailsModalProps {
+  task: Task;
+  objectiveTitle: string;
+  onClose: () => void;
+  onDelete: () => void;
+  onUpdate: (updates: Partial<Task>) => void;
+}
+
+const statusLabels: Record<Task['status'], string> = {
+  planning: 'Planning',
+  'in-progress': 'In Progress',
+  waiting: 'Waiting',
+  completed: 'Completed'
+};
+
+export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUpdate }: TaskDetailsModalProps) {
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const subtasks = task.subtasks ?? [];
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  const updateSubtasks = (updatedSubtasks: Subtask[]) => {
+    onUpdate({ subtasks: updatedSubtasks });
+  };
+
+  const addSubtask = () => {
+    const title = newSubtaskTitle.trim();
+    if (!title) return;
+
+    updateSubtasks([
+      ...subtasks,
+      {
+        id: Date.now(),
+        title,
+        completed: false
+      }
+    ]);
+    setNewSubtaskTitle('');
+  };
+
+  const updateSubtask = (subtaskId: number, updates: Partial<Subtask>) => {
+    updateSubtasks(subtasks.map((subtask) => (
+      subtask.id === subtaskId ? { ...subtask, ...updates } : subtask
+    )));
+  };
+
+  const deleteSubtask = (subtaskId: number) => {
+    updateSubtasks(subtasks.filter((subtask) => subtask.id !== subtaskId));
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="task-details-title"
+      onMouseDown={onClose}
+    >
+      <div
+        className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white shadow-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/95 px-6 py-4 backdrop-blur">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Task details</p>
+            <p className="text-sm text-slate-500">{objectiveTitle}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
+            aria-label="Close task details"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="grid gap-6 p-6 lg:grid-cols-[1fr_280px]">
+          <section className="space-y-6">
+            <label className="block">
+              <span className="sr-only">Task title</span>
+              <input
+                id="task-details-title"
+                value={task.title}
+                onChange={(event) => onUpdate({ title: event.target.value })}
+                placeholder="Task title"
+                className="w-full rounded-2xl border border-transparent px-1 py-2 text-3xl font-bold text-slate-950 outline-none hover:border-slate-200 focus:border-blue-400 focus:bg-blue-50/40"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-slate-700">Description</span>
+              <textarea
+                value={task.description ?? ''}
+                onChange={(event) => onUpdate({ description: event.target.value })}
+                placeholder="Add context, goals, links, or acceptance criteria for this task."
+                rows={8}
+                className="w-full resize-y rounded-2xl border border-slate-300 px-4 py-3 text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              />
+            </label>
+
+            <div>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold text-slate-900">Subtasks</h3>
+                  <p className="text-sm text-slate-500">Break this work into trackable next steps.</p>
+                </div>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                  {subtasks.filter((subtask) => subtask.completed).length}/{subtasks.length} done
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {subtasks.map((subtask) => (
+                  <div key={subtask.id} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <input
+                      type="checkbox"
+                      checked={subtask.completed}
+                      onChange={(event) => updateSubtask(subtask.id, { completed: event.target.checked })}
+                      className="h-5 w-5 rounded border-slate-300"
+                      aria-label={`Mark ${subtask.title} complete`}
+                    />
+                    <input
+                      value={subtask.title}
+                      onChange={(event) => updateSubtask(subtask.id, { title: event.target.value })}
+                      className={`min-w-0 flex-1 bg-transparent text-slate-900 outline-none ${subtask.completed ? 'line-through text-slate-500' : ''}`}
+                      aria-label="Subtask title"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => deleteSubtask(subtask.id)}
+                      className="rounded-full px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 flex gap-2">
+                <input
+                  value={newSubtaskTitle}
+                  onChange={(event) => setNewSubtaskTitle(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      addSubtask();
+                    }
+                  }}
+                  placeholder="Add a subtask"
+                  className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+                />
+                <button
+                  type="button"
+                  onClick={addSubtask}
+                  className="rounded-xl bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <aside className="space-y-4 rounded-3xl bg-slate-50 p-5">
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-slate-700">Status</span>
+              <select
+                value={task.status}
+                onChange={(event) => onUpdate({ status: event.target.value as Task['status'] })}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
+              >
+                {taskStatusOptions.map((status) => (
+                  <option key={status} value={status}>{statusLabels[status]}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-slate-700">Assigned person</span>
+              <input
+                value={task.assignedTo ?? ''}
+                onChange={(event) => onUpdate({ assignedTo: event.target.value })}
+                placeholder="Unassigned"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-slate-700">Due date</span>
+              <input
+                type="date"
+                value={task.dueDate ?? ''}
+                onChange={(event) => onUpdate({ dueDate: event.target.value })}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
+              />
+            </label>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+              <p className="font-semibold text-slate-900">Card preview</p>
+              <p className="mt-2 line-clamp-2">{task.title || 'Untitled task'}</p>
+              <p className="mt-3 text-xs uppercase tracking-wide text-slate-400">Details auto-save to this objective.</p>
+            </div>
+
+            <button
+              type="button"
+              onClick={onDelete}
+              className="w-full rounded-xl border border-red-200 bg-white px-4 py-2 font-medium text-red-600 hover:bg-red-50"
+            >
+              Delete task
+            </button>
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
