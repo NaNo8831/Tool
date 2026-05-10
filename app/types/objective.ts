@@ -4,12 +4,19 @@ export interface Subtask {
   completed: boolean;
 }
 
+export interface TaskComment {
+  id: number;
+  text: string;
+  createdAt: string;
+}
+
 export interface Task {
   id: number;
   title: string;
   description: string;
   dueDate: string;
   subtasks: Subtask[];
+  comments: TaskComment[];
   assignedTo: string;
   status: 'planning' | 'in-progress' | 'waiting' | 'completed';
 }
