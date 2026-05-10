@@ -14,6 +14,8 @@ export interface TaskActivity {
   id: number;
   message: string;
   createdAt: string;
+  type?: 'subtask-completed';
+  subtaskId?: number;
 }
 
 export interface Task {

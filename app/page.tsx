@@ -107,7 +107,9 @@ const normalizeTask = (task: StoredTask): { task: Task; changed: boolean } => {
     ? task.activityHistory.map((activity, activityIndex) => ({
         id: activity.id ?? task.id + activityIndex + 1,
         message: activity.message ?? '',
-        createdAt: activity.createdAt ?? new Date().toISOString()
+        createdAt: activity.createdAt ?? new Date().toISOString(),
+        type: activity.type,
+        subtaskId: activity.subtaskId
       }))
     : [];
 
