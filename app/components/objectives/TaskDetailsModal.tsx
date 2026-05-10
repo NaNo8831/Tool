@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { taskStatusOptions } from '@/app/lib/objectiveOptions';
 import type { Subtask, Task } from '@/app/types/objective';
 
@@ -12,6 +12,8 @@ interface TaskDetailsModalProps {
   onUpdate: (updates: Partial<Task>) => void;
 }
 
+type SaveStatus = 'saving' | 'saved';
+
 const statusLabels: Record<Task['status'], string> = {
   planning: 'Planning',
   'in-progress': 'In Progress',
@@ -21,7 +23,10 @@ const statusLabels: Record<Task['status'], string> = {
 
 export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUpdate }: TaskDetailsModalProps) {
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
-  const subtasks = task.subtasks ?? [];
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
+  const subtasks = useMemo(() => task.subtasks ?? [], [task.subtasks]);
+  const saveStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nextSubtaskIdRef = useRef(Math.max(0, ...subtasks.map((subtask) => subtask.id)) + 1);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -32,8 +37,34 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
+  useEffect(() => {
+    nextSubtaskIdRef.current = Math.max(
+      nextSubtaskIdRef.current,
+      Math.max(0, ...subtasks.map((subtask) => subtask.id)) + 1
+    );
+  }, [subtasks]);
+
+  useEffect(() => () => {
+    if (saveStatusTimeoutRef.current) {
+      clearTimeout(saveStatusTimeoutRef.current);
+    }
+  }, []);
+
+  const handleUpdate = (updates: Partial<Task>) => {
+    onUpdate(updates);
+    setSaveStatus('saving');
+
+    if (saveStatusTimeoutRef.current) {
+      clearTimeout(saveStatusTimeoutRef.current);
+    }
+
+    saveStatusTimeoutRef.current = setTimeout(() => {
+      setSaveStatus('saved');
+    }, 500);
+  };
+
   const updateSubtasks = (updatedSubtasks: Subtask[]) => {
-    onUpdate({ subtasks: updatedSubtasks });
+    handleUpdate({ subtasks: updatedSubtasks });
   };
 
   const addSubtask = () => {
@@ -43,7 +74,7 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
     updateSubtasks([
       ...subtasks,
       {
-        id: Date.now(),
+        id: nextSubtaskIdRef.current++,
         title,
         completed: false
       }
@@ -78,14 +109,23 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Task details</p>
             <p className="text-sm text-slate-500">{objectiveTitle}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
-            aria-label="Close task details"
-          >
-            Close
-          </button>
+          <div className="flex items-center gap-3">
+            <span
+              className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600"
+              role="status"
+              aria-live="polite"
+            >
+              {saveStatus === 'saving' ? 'Saving...' : 'Saved'}
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
+              aria-label="Close task details"
+            >
+              Close
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-6 p-6 lg:grid-cols-[1fr_280px]">
@@ -95,7 +135,7 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
               <input
                 id="task-details-title"
                 value={task.title}
-                onChange={(event) => onUpdate({ title: event.target.value })}
+                onChange={(event) => handleUpdate({ title: event.target.value })}
                 placeholder="Task title"
                 className="w-full rounded-2xl border border-transparent px-1 py-2 text-3xl font-bold text-slate-950 outline-none hover:border-slate-200 focus:border-blue-400 focus:bg-blue-50/40"
               />
@@ -105,7 +145,7 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
               <span className="mb-2 block text-sm font-semibold text-slate-700">Description</span>
               <textarea
                 value={task.description ?? ''}
-                onChange={(event) => onUpdate({ description: event.target.value })}
+                onChange={(event) => handleUpdate({ description: event.target.value })}
                 placeholder="Add context, goals, links, or acceptance criteria for this task."
                 rows={8}
                 className="w-full resize-y rounded-2xl border border-slate-300 px-4 py-3 text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
@@ -179,7 +219,7 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
               <span className="mb-2 block text-sm font-semibold text-slate-700">Status</span>
               <select
                 value={task.status}
-                onChange={(event) => onUpdate({ status: event.target.value as Task['status'] })}
+                onChange={(event) => handleUpdate({ status: event.target.value as Task['status'] })}
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
               >
                 {taskStatusOptions.map((status) => (
@@ -192,7 +232,7 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
               <span className="mb-2 block text-sm font-semibold text-slate-700">Assigned person</span>
               <input
                 value={task.assignedTo ?? ''}
-                onChange={(event) => onUpdate({ assignedTo: event.target.value })}
+                onChange={(event) => handleUpdate({ assignedTo: event.target.value })}
                 placeholder="Unassigned"
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
               />
@@ -203,7 +243,7 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
               <input
                 type="date"
                 value={task.dueDate ?? ''}
-                onChange={(event) => onUpdate({ dueDate: event.target.value })}
+                onChange={(event) => handleUpdate({ dueDate: event.target.value })}
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
               />
             </label>
