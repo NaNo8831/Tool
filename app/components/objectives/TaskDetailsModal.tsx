@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { taskStatusOptions } from '@/app/lib/objectiveOptions';
 import { MarkdownPreview } from '@/app/components/ui/MarkdownPreview';
-import type { Subtask, Task } from '@/app/types/objective';
+import type { Subtask, Task, TaskComment } from '@/app/types/objective';
 
 interface TaskDetailsModalProps {
   task: Task;
@@ -24,10 +24,13 @@ const statusLabels: Record<Task['status'], string> = {
 
 export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUpdate }: TaskDetailsModalProps) {
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [newCommentText, setNewCommentText] = useState('');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const subtasks = useMemo(() => task.subtasks ?? [], [task.subtasks]);
+  const comments = useMemo(() => task.comments ?? [], [task.comments]);
   const saveStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nextSubtaskIdRef = useRef(Math.max(0, ...subtasks.map((subtask) => subtask.id)) + 1);
+  const nextCommentIdRef = useRef(Math.max(0, ...comments.map((comment) => comment.id)) + 1);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -44,6 +47,13 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
       Math.max(0, ...subtasks.map((subtask) => subtask.id)) + 1
     );
   }, [subtasks]);
+
+  useEffect(() => {
+    nextCommentIdRef.current = Math.max(
+      nextCommentIdRef.current,
+      Math.max(0, ...comments.map((comment) => comment.id)) + 1
+    );
+  }, [comments]);
 
   useEffect(() => () => {
     if (saveStatusTimeoutRef.current) {
@@ -66,6 +76,10 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
 
   const updateSubtasks = (updatedSubtasks: Subtask[]) => {
     handleUpdate({ subtasks: updatedSubtasks });
+  };
+
+  const updateComments = (updatedComments: TaskComment[]) => {
+    handleUpdate({ comments: updatedComments });
   };
 
   const addSubtask = () => {
@@ -91,6 +105,35 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
 
   const deleteSubtask = (subtaskId: number) => {
     updateSubtasks(subtasks.filter((subtask) => subtask.id !== subtaskId));
+  };
+
+  const addComment = () => {
+    const text = newCommentText.trim();
+    if (!text) return;
+
+    updateComments([
+      ...comments,
+      {
+        id: nextCommentIdRef.current++,
+        text,
+        createdAt: new Date().toISOString()
+      }
+    ]);
+    setNewCommentText('');
+  };
+
+  const deleteComment = (commentId: number) => {
+    updateComments(comments.filter((comment) => comment.id !== commentId));
+  };
+
+  const formatCommentTimestamp = (createdAt: string) => {
+    const timestamp = new Date(createdAt);
+    if (Number.isNaN(timestamp.getTime())) return 'Unknown time';
+
+    return timestamp.toLocaleString([], {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
   };
 
   return (
@@ -167,6 +210,63 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
                   <MarkdownPreview value={task.description} />
                 ) : (
                   <p className="text-sm text-slate-500">Preview appears here as you add description details.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold text-slate-900">Comments</h3>
+                  <p className="text-sm text-slate-500">Add timestamped notes without changing the task description.</p>
+                </div>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                  {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                <textarea
+                  value={newCommentText}
+                  onChange={(event) => setNewCommentText(event.target.value)}
+                  placeholder="Write a new comment for this task."
+                  rows={3}
+                  className="w-full resize-y rounded-2xl border border-slate-300 px-4 py-3 text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={addComment}
+                    disabled={!newCommentText.trim()}
+                    className="rounded-xl bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
+                    Add Comment
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {comments.length > 0 ? comments.map((comment) => (
+                  <article key={comment.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="mb-2 flex items-start justify-between gap-3">
+                      <time className="text-xs font-medium text-slate-500" dateTime={comment.createdAt}>
+                        {formatCommentTimestamp(comment.createdAt)}
+                      </time>
+                      <button
+                        type="button"
+                        onClick={() => deleteComment(comment.id)}
+                        className="rounded-full px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                        aria-label={`Delete comment from ${formatCommentTimestamp(comment.createdAt)}`}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                    <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{comment.text}</p>
+                  </article>
+                )) : (
+                  <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+                    No comments yet. Add the first task comment above.
+                  </p>
                 )}
               </div>
             </div>

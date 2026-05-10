@@ -18,7 +18,7 @@ import type {
   MeetingSectionKey,
   TaskInput
 } from '@/app/types/dashboard';
-import type { Objective, Subtask, Task, TaskStatus } from '@/app/types/objective';
+import type { Objective, Subtask, Task, TaskComment, TaskStatus } from '@/app/types/objective';
 import { objectivesData } from '@/data/objectives';
 
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
@@ -64,10 +64,12 @@ const hasMeetingItems = (meeting: MeetingRecord) => [
 
 
 type StoredSubtask = Partial<Subtask>;
-type StoredTask = Partial<Omit<Task, 'subtasks'>> & {
+type StoredTaskComment = Partial<TaskComment>;
+type StoredTask = Partial<Omit<Task, 'subtasks' | 'comments'>> & {
   id: number;
   title: string;
   subtasks?: StoredSubtask[];
+  comments?: StoredTaskComment[];
 };
 
 const normalizeTask = (task: StoredTask): { task: Task; changed: boolean } => {
@@ -78,6 +80,13 @@ const normalizeTask = (task: StoredTask): { task: Task; changed: boolean } => {
         completed: subtask.completed ?? false
       }))
     : [];
+  const comments = Array.isArray(task.comments)
+    ? task.comments.map((comment, commentIndex) => ({
+        id: comment.id ?? task.id + commentIndex + 1,
+        text: comment.text ?? '',
+        createdAt: comment.createdAt ?? new Date().toISOString()
+      }))
+    : [];
 
   const normalizedTask: Task = {
     id: task.id,
@@ -85,6 +94,7 @@ const normalizeTask = (task: StoredTask): { task: Task; changed: boolean } => {
     description: task.description ?? '',
     dueDate: task.dueDate ?? '',
     subtasks,
+    comments,
     assignedTo: task.assignedTo ?? '',
     status: task.status ?? 'planning'
   };
@@ -94,11 +104,18 @@ const normalizeTask = (task: StoredTask): { task: Task; changed: boolean } => {
     || task.assignedTo === undefined
     || task.status === undefined
     || !Array.isArray(task.subtasks)
+    || !Array.isArray(task.comments)
     || subtasks.some((subtask, subtaskIndex) => {
       const storedSubtask = task.subtasks?.[subtaskIndex];
       return storedSubtask?.id === undefined
         || storedSubtask.title === undefined
         || storedSubtask.completed === undefined;
+    })
+    || comments.some((comment, commentIndex) => {
+      const storedComment = task.comments?.[commentIndex];
+      return storedComment?.id === undefined
+        || storedComment.text === undefined
+        || storedComment.createdAt === undefined;
     });
 
   return { task: normalizedTask, changed };
@@ -274,6 +291,7 @@ export default function Home() {
       description: '',
       dueDate: '',
       subtasks: [],
+      comments: [],
       status: 'planning',
       assignedTo: assignee || ''
     };
