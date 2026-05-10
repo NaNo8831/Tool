@@ -4,7 +4,7 @@ import type { DragEvent } from 'react';
 import { EditableField } from '@/app/components/ui/EditableField';
 import { TaskList } from '@/app/components/objectives/TaskList';
 import { objectiveColorClasses } from '@/app/lib/objectiveOptions';
-import type { Objective } from '@/app/types/objective';
+import type { Objective, TaskStatus } from '@/app/types/objective';
 import type { TaskInput } from '@/app/types/dashboard';
 
 interface ObjectiveCardProps {
@@ -20,6 +20,7 @@ interface ObjectiveCardProps {
   onTaskInputChange: (objectiveId: number, input: TaskInput) => void;
   onAddTask: (objectiveId: number, taskTitle: string, assignedTo: string) => void;
   onOpenTask: (objectiveId: number, taskId: number) => void;
+  onTaskStatusChange: (objectiveId: number, taskId: number, status: TaskStatus) => void;
 }
 
 export function ObjectiveCard({
@@ -34,7 +35,8 @@ export function ObjectiveCard({
   onDelete,
   onTaskInputChange,
   onAddTask,
-  onOpenTask
+  onOpenTask,
+  onTaskStatusChange
 }: ObjectiveCardProps) {
   return (
     <div
@@ -93,6 +95,7 @@ export function ObjectiveCard({
         onTaskInputChange={onTaskInputChange}
         onAddTask={onAddTask}
         onOpenTask={onOpenTask}
+        onTaskStatusChange={onTaskStatusChange}
       />
     </div>
   );
