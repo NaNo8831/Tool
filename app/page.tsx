@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import { PreferencesModal } from '@/app/components/dashboard/PreferencesModal';
 import { MeetingSection } from '@/app/components/meeting/MeetingSection';
 import { ObjectiveCard } from '@/app/components/objectives/ObjectiveCard';
+import { TaskDetailsModal } from '@/app/components/objectives/TaskDetailsModal';
 import { useLocalStorage } from '@/app/hooks/useLocalStorage';
 import {
   defaultDashboardTitle,
@@ -78,6 +79,7 @@ export default function Home() {
   const [newCascadeItem, setNewCascadeItem] = useState('');
   const [showPreferences, setShowPreferences] = useState(false);
   const [taskInputs, setTaskInputs] = useState<Record<number, TaskInput>>({});
+  const [selectedTask, setSelectedTask] = useState<{ objectiveId: number; taskId: number } | null>(null);
   const [draggingObjectiveId, setDraggingObjectiveId] = useState<number | null>(null);
   const [draggingMeetingSection, setDraggingMeetingSection] = useState<MeetingSectionKey | null>(null);
   const organizationInfoWithDefaults = { ...defaultOrganizationInfo, ...organizationInfo };
@@ -86,6 +88,13 @@ export default function Home() {
   const activeMeeting = meetings[activeMeetingIndex] ?? initialMeetings[0];
   const canNavigateToPreviousMeeting = activeMeetingIndex > 0;
   const canNavigateToNextMeeting = activeMeetingIndex < meetings.length - 1;
+  const selectedObjective = selectedTask
+    ? objectives.find((objective) => objective.id === selectedTask.objectiveId) ?? null
+    : null;
+  const selectedTaskDetails = selectedObjective && selectedTask
+    ? selectedObjective.tasks.find((task) => task.id === selectedTask.taskId) ?? null
+    : null;
+
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -192,6 +201,9 @@ export default function Home() {
     const newTask: Task = {
       id: Date.now(),
       title,
+      description: '',
+      dueDate: '',
+      subtasks: [],
       status: 'planning',
       assignedTo: assignee || ''
     };
@@ -205,40 +217,18 @@ export default function Home() {
     });
   };
 
-  const updateTaskStatus = (objectiveId: number, taskId: number, newStatus: Task['status']) => {
-    setObjectives(objectives.map((obj) =>
-      obj.id === objectiveId
-        ? {
-            ...obj,
-            tasks: obj.tasks.map((task) =>
-              task.id === taskId ? { ...task, status: newStatus } : task
-            )
-          }
-        : obj
-    ));
+  const openTaskDetails = (objectiveId: number, taskId: number) => {
+    setSelectedTask({ objectiveId, taskId });
   };
 
-  const updateTaskTitle = (objectiveId: number, taskId: number, newTitle: string) => {
+  const updateTask = (objectiveId: number, taskId: number, updates: Partial<Task>) => {
     setObjectives(objectives.map((obj) =>
       obj.id === objectiveId
         ? {
             ...obj,
-            tasks: obj.tasks.map((task) =>
-              task.id === taskId ? { ...task, title: newTitle } : task
-            )
-          }
-        : obj
-    ));
-  };
-
-  const updateTaskAssignee = (objectiveId: number, taskId: number, newAssignee: string) => {
-    setObjectives(objectives.map((obj) =>
-      obj.id === objectiveId
-        ? {
-            ...obj,
-            tasks: obj.tasks.map((task) =>
-              task.id === taskId ? { ...task, assignedTo: newAssignee } : task
-            )
+            tasks: obj.tasks.map((task) => (
+              task.id === taskId ? { ...task, ...updates } : task
+            ))
           }
         : obj
     ));
@@ -250,6 +240,9 @@ export default function Home() {
       obj.id === objectiveId
         ? { ...obj, tasks: obj.tasks.filter((task) => task.id !== taskId) }
         : obj
+    ));
+    setSelectedTask((current) => (
+      current?.objectiveId === objectiveId && current.taskId === taskId ? null : current
     ));
   };
 
@@ -467,10 +460,7 @@ export default function Home() {
               onDelete={deleteObjective}
               onTaskInputChange={updateTaskInput}
               onAddTask={addTask}
-              onUpdateTaskStatus={updateTaskStatus}
-              onUpdateTaskTitle={updateTaskTitle}
-              onUpdateTaskAssignee={updateTaskAssignee}
-              onDeleteTask={deleteTask}
+              onOpenTask={openTaskDetails}
             />
           ))}
         </div>
@@ -542,6 +532,16 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      {selectedObjective && selectedTaskDetails ? (
+        <TaskDetailsModal
+          task={selectedTaskDetails}
+          objectiveTitle={selectedObjective.title}
+          onClose={() => setSelectedTask(null)}
+          onDelete={() => deleteTask(selectedObjective.id, selectedTaskDetails.id)}
+          onUpdate={(updates) => updateTask(selectedObjective.id, selectedTaskDetails.id, updates)}
+        />
+      ) : null}
 
       <PreferencesModal
         isOpen={showPreferences}

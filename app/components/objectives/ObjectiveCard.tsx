@@ -4,7 +4,7 @@ import type { DragEvent } from 'react';
 import { EditableField } from '@/app/components/ui/EditableField';
 import { TaskList } from '@/app/components/objectives/TaskList';
 import { objectiveColorClasses } from '@/app/lib/objectiveOptions';
-import type { Objective, Task } from '@/app/types/objective';
+import type { Objective } from '@/app/types/objective';
 import type { TaskInput } from '@/app/types/dashboard';
 
 interface ObjectiveCardProps {
@@ -19,10 +19,7 @@ interface ObjectiveCardProps {
   onDelete: (id: number) => void;
   onTaskInputChange: (objectiveId: number, input: TaskInput) => void;
   onAddTask: (objectiveId: number, taskTitle: string, assignedTo: string) => void;
-  onUpdateTaskStatus: (objectiveId: number, taskId: number, status: Task['status']) => void;
-  onUpdateTaskTitle: (objectiveId: number, taskId: number, title: string) => void;
-  onUpdateTaskAssignee: (objectiveId: number, taskId: number, assignee: string) => void;
-  onDeleteTask: (objectiveId: number, taskId: number) => void;
+  onOpenTask: (objectiveId: number, taskId: number) => void;
 }
 
 export function ObjectiveCard({
@@ -37,10 +34,7 @@ export function ObjectiveCard({
   onDelete,
   onTaskInputChange,
   onAddTask,
-  onUpdateTaskStatus,
-  onUpdateTaskTitle,
-  onUpdateTaskAssignee,
-  onDeleteTask
+  onOpenTask
 }: ObjectiveCardProps) {
   return (
     <div
@@ -98,10 +92,7 @@ export function ObjectiveCard({
         taskInput={taskInput}
         onTaskInputChange={onTaskInputChange}
         onAddTask={onAddTask}
-        onUpdateTaskStatus={onUpdateTaskStatus}
-        onUpdateTaskTitle={onUpdateTaskTitle}
-        onUpdateTaskAssignee={onUpdateTaskAssignee}
-        onDeleteTask={onDeleteTask}
+        onOpenTask={onOpenTask}
       />
     </div>
   );

@@ -1,7 +1,16 @@
+export interface Subtask {
+  id: number;
+  title: string;
+  completed: boolean;
+}
+
 export interface Task {
   id: number;
   title: string;
-  assignedTo?: string;
+  description: string;
+  dueDate: string;
+  subtasks: Subtask[];
+  assignedTo: string;
   status: 'planning' | 'in-progress' | 'waiting' | 'completed';
 }
 
