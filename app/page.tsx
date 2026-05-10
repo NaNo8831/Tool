@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type DragEvent } from 'react';
+import { useMemo, useState, type DragEvent } from 'react';
 import { PreferencesModal } from '@/app/components/dashboard/PreferencesModal';
 import { MeetingSection } from '@/app/components/meeting/MeetingSection';
 import { ObjectiveCard } from '@/app/components/objectives/ObjectiveCard';
@@ -12,6 +12,7 @@ import {
 } from '@/app/lib/objectiveOptions';
 import type {
   MeetingItem,
+  MeetingRecord,
   MeetingSectionConfig,
   MeetingSectionKey,
   TaskInput
@@ -19,12 +20,43 @@ import type {
 import type { Objective, Task } from '@/app/types/objective';
 import { objectivesData } from '@/data/objectives';
 
+const getTodayDate = () => new Date().toISOString().slice(0, 10);
+
+const createBlankMeeting = (): MeetingRecord => ({
+  id: Date.now(),
+  date: getTodayDate(),
+  agendaItems: [],
+  topicItems: [],
+  decisionItems: [],
+  cascadeItems: []
+});
+
+const readLegacyMeetingItems = (key: string): MeetingItem[] => {
+  if (typeof window === 'undefined') return [];
+
+  const storedValue = window.localStorage.getItem(key);
+  if (storedValue === null) return [];
+
+  try {
+    return JSON.parse(storedValue) as MeetingItem[];
+  } catch {
+    return [];
+  }
+};
+
+const getInitialMeetings = (): MeetingRecord[] => [{
+  ...createBlankMeeting(),
+  agendaItems: readLegacyMeetingItems('leadership-agenda-items'),
+  topicItems: readLegacyMeetingItems('leadership-topic-items'),
+  decisionItems: readLegacyMeetingItems('leadership-decision-items'),
+  cascadeItems: readLegacyMeetingItems('leadership-cascade-items')
+}];
+
 export default function Home() {
+  const initialMeetings = useMemo(() => getInitialMeetings(), []);
   const [objectives, setObjectives] = useLocalStorage<Objective[]>('leadership-objectives', objectivesData);
-  const [agendaItems, setAgendaItems] = useLocalStorage<MeetingItem[]>('leadership-agenda-items', []);
-  const [topicItems, setTopicItems] = useLocalStorage<MeetingItem[]>('leadership-topic-items', []);
-  const [decisionItems, setDecisionItems] = useLocalStorage<MeetingItem[]>('leadership-decision-items', []);
-  const [cascadeItems, setCascadeItems] = useLocalStorage<MeetingItem[]>('leadership-cascade-items', []);
+  const [meetings, setMeetings] = useLocalStorage<MeetingRecord[]>('leadership-meetings', initialMeetings);
+  const [activeMeetingId, setActiveMeetingId] = useLocalStorage<number>('leadership-active-meeting-id', initialMeetings[0].id);
   const [dashboardTitle, setDashboardTitle] = useLocalStorage('leadership-dashboard-title', defaultDashboardTitle);
   const [organizationInfo, setOrganizationInfo] = useLocalStorage('leadership-organization-info', defaultOrganizationInfo);
   const [meetingSectionOrder, setMeetingSectionOrder] = useLocalStorage<MeetingSectionKey[]>(
@@ -40,6 +72,11 @@ export default function Home() {
   const [draggingObjectiveId, setDraggingObjectiveId] = useState<number | null>(null);
   const [draggingMeetingSection, setDraggingMeetingSection] = useState<MeetingSectionKey | null>(null);
   const organizationInfoWithDefaults = { ...defaultOrganizationInfo, ...organizationInfo };
+  const storedActiveMeetingIndex = meetings.findIndex((meeting) => meeting.id === activeMeetingId);
+  const activeMeetingIndex = storedActiveMeetingIndex === -1 ? 0 : storedActiveMeetingIndex;
+  const activeMeeting = meetings[activeMeetingIndex] ?? initialMeetings[0];
+  const canNavigateToPreviousMeeting = activeMeetingIndex > 0;
+  const canNavigateToNextMeeting = activeMeetingIndex < meetings.length - 1;
 
   const updateObjectiveTitle = (id: number, newTitle: string) => {
     setObjectives(objectives.map((obj) =>
@@ -200,23 +237,62 @@ export default function Home() {
     });
   };
 
+  const updateActiveMeeting = (updates: Partial<Omit<MeetingRecord, 'id'>>) => {
+    setMeetings((currentMeetings) => currentMeetings.map((meeting) => (
+      meeting.id === activeMeeting.id ? { ...meeting, ...updates } : meeting
+    )));
+  };
+
   const addMeetingItem = (
     value: string,
     setValue: (value: string) => void,
-    items: MeetingItem[],
-    setItems: (items: MeetingItem[]) => void
+    sectionKey: keyof Pick<MeetingRecord, 'agendaItems' | 'topicItems' | 'decisionItems' | 'cascadeItems'>
   ) => {
     if (!value.trim()) return;
-    setItems([...items, { id: Date.now(), text: value.trim() }]);
+    updateActiveMeeting({
+      [sectionKey]: [...activeMeeting[sectionKey], { id: Date.now(), text: value.trim() }]
+    });
     setValue('');
   };
 
-  const updateMeetingItem = (items: MeetingItem[], setItems: (items: MeetingItem[]) => void, itemId: number, value: string) => {
-    setItems(items.map((item) => (item.id === itemId ? { ...item, text: value } : item)));
+  const updateMeetingItem = (
+    sectionKey: keyof Pick<MeetingRecord, 'agendaItems' | 'topicItems' | 'decisionItems' | 'cascadeItems'>,
+    itemId: number,
+    value: string
+  ) => {
+    updateActiveMeeting({
+      [sectionKey]: activeMeeting[sectionKey].map((item) => (item.id === itemId ? { ...item, text: value } : item))
+    });
   };
 
-  const deleteMeetingItem = (items: MeetingItem[], setItems: (items: MeetingItem[]) => void, itemId: number) => {
-    setItems(items.filter((item) => item.id !== itemId));
+  const deleteMeetingItem = (
+    sectionKey: keyof Pick<MeetingRecord, 'agendaItems' | 'topicItems' | 'decisionItems' | 'cascadeItems'>,
+    itemId: number
+  ) => {
+    updateActiveMeeting({
+      [sectionKey]: activeMeeting[sectionKey].filter((item) => item.id !== itemId)
+    });
+  };
+
+  const createNewMeeting = () => {
+    const newMeeting = createBlankMeeting();
+    setMeetings([...meetings, newMeeting]);
+    setActiveMeetingId(newMeeting.id);
+    setNewAgendaItem('');
+    setNewTopicItem('');
+    setNewDecisionItem('');
+    setNewCascadeItem('');
+  };
+
+  const navigateMeeting = (direction: 'previous' | 'next') => {
+    const nextIndex = direction === 'previous' ? activeMeetingIndex - 1 : activeMeetingIndex + 1;
+    const nextMeeting = meetings[nextIndex];
+    if (!nextMeeting) return;
+    setActiveMeetingId(nextMeeting.id);
+    setNewAgendaItem('');
+    setNewTopicItem('');
+    setNewDecisionItem('');
+    setNewCascadeItem('');
   };
 
   const meetingSections: Record<MeetingSectionKey, MeetingSectionConfig> = {
@@ -224,12 +300,12 @@ export default function Home() {
       id: 'agenda',
       title: 'Agenda Items',
       description: 'List the meeting agenda items to cover.',
-      items: agendaItems,
+      items: activeMeeting.agendaItems,
       newItem: newAgendaItem,
       setNewItem: setNewAgendaItem,
-      addItem: () => addMeetingItem(newAgendaItem, setNewAgendaItem, agendaItems, setAgendaItems),
-      updateItem: (itemId, value) => updateMeetingItem(agendaItems, setAgendaItems, itemId, value),
-      deleteItem: (itemId) => deleteMeetingItem(agendaItems, setAgendaItems, itemId),
+      addItem: () => addMeetingItem(newAgendaItem, setNewAgendaItem, 'agendaItems'),
+      updateItem: (itemId, value) => updateMeetingItem('agendaItems', itemId, value),
+      deleteItem: (itemId) => deleteMeetingItem('agendaItems', itemId),
       placeholder: 'New agenda item',
       editPlaceholder: 'Add agenda item'
     },
@@ -237,12 +313,12 @@ export default function Home() {
       id: 'topic',
       title: 'Potential Strategic Topics',
       description: 'Capture high-level topics for the meeting.',
-      items: topicItems,
+      items: activeMeeting.topicItems,
       newItem: newTopicItem,
       setNewItem: setNewTopicItem,
-      addItem: () => addMeetingItem(newTopicItem, setNewTopicItem, topicItems, setTopicItems),
-      updateItem: (itemId, value) => updateMeetingItem(topicItems, setTopicItems, itemId, value),
-      deleteItem: (itemId) => deleteMeetingItem(topicItems, setTopicItems, itemId),
+      addItem: () => addMeetingItem(newTopicItem, setNewTopicItem, 'topicItems'),
+      updateItem: (itemId, value) => updateMeetingItem('topicItems', itemId, value),
+      deleteItem: (itemId) => deleteMeetingItem('topicItems', itemId),
       placeholder: 'New strategic topic',
       editPlaceholder: 'Add strategic topic'
     },
@@ -250,12 +326,12 @@ export default function Home() {
       id: 'decision',
       title: 'Decisions / Actions',
       description: 'Document the decisions and next actions from the meeting.',
-      items: decisionItems,
+      items: activeMeeting.decisionItems,
       newItem: newDecisionItem,
       setNewItem: setNewDecisionItem,
-      addItem: () => addMeetingItem(newDecisionItem, setNewDecisionItem, decisionItems, setDecisionItems),
-      updateItem: (itemId, value) => updateMeetingItem(decisionItems, setDecisionItems, itemId, value),
-      deleteItem: (itemId) => deleteMeetingItem(decisionItems, setDecisionItems, itemId),
+      addItem: () => addMeetingItem(newDecisionItem, setNewDecisionItem, 'decisionItems'),
+      updateItem: (itemId, value) => updateMeetingItem('decisionItems', itemId, value),
+      deleteItem: (itemId) => deleteMeetingItem('decisionItems', itemId),
       placeholder: 'New decision or action',
       editPlaceholder: 'Decision or action item'
     },
@@ -263,12 +339,12 @@ export default function Home() {
       id: 'cascade',
       title: 'Cascading Messages',
       description: 'Capture key messages to share across the team.',
-      items: cascadeItems,
+      items: activeMeeting.cascadeItems,
       newItem: newCascadeItem,
       setNewItem: setNewCascadeItem,
-      addItem: () => addMeetingItem(newCascadeItem, setNewCascadeItem, cascadeItems, setCascadeItems),
-      updateItem: (itemId, value) => updateMeetingItem(cascadeItems, setCascadeItems, itemId, value),
-      deleteItem: (itemId) => deleteMeetingItem(cascadeItems, setCascadeItems, itemId),
+      addItem: () => addMeetingItem(newCascadeItem, setNewCascadeItem, 'cascadeItems'),
+      updateItem: (itemId, value) => updateMeetingItem('cascadeItems', itemId, value),
+      deleteItem: (itemId) => deleteMeetingItem('cascadeItems', itemId),
       placeholder: 'New cascading message',
       editPlaceholder: 'Cascading message'
     }
@@ -376,7 +452,62 @@ export default function Home() {
           ))}
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 mt-10">
+        <div className="mt-10 mb-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 className="text-3xl font-bold text-slate-900">Meeting Notes</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Use the arrows to review archived meetings, or start a new blank meeting to archive this one.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                Current meeting date
+                <input
+                  type="date"
+                  value={activeMeeting.date}
+                  onChange={(e) => updateActiveMeeting({ date: e.target.value })}
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+                />
+              </label>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigateMeeting('previous')}
+                  disabled={!canNavigateToPreviousMeeting}
+                  className="rounded-full border border-slate-300 bg-white px-4 py-2 text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="View previous meeting"
+                >
+                  ←
+                </button>
+                <span className="min-w-24 text-center text-sm font-medium text-slate-600">
+                  {meetings.length === 0 ? '0 of 0' : `${activeMeetingIndex + 1} of ${meetings.length}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => navigateMeeting('next')}
+                  disabled={!canNavigateToNextMeeting}
+                  className="rounded-full border border-slate-300 bg-white px-4 py-2 text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="View next meeting"
+                >
+                  →
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={createNewMeeting}
+                className="rounded-full bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+              >
+                + New Blank Meeting
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
           {meetingSectionOrder.map((sectionKey) => (
             <MeetingSection
               key={sectionKey}

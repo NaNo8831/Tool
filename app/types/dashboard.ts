@@ -15,6 +15,15 @@ export interface MeetingItem {
 
 export type MeetingSectionKey = 'agenda' | 'topic' | 'decision' | 'cascade';
 
+export interface MeetingRecord {
+  id: number;
+  date: string;
+  agendaItems: MeetingItem[];
+  topicItems: MeetingItem[];
+  decisionItems: MeetingItem[];
+  cascadeItems: MeetingItem[];
+}
+
 export interface MeetingSectionConfig {
   id: MeetingSectionKey;
   title: string;
