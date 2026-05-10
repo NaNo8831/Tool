@@ -18,7 +18,7 @@ import type {
   MeetingSectionKey,
   TaskInput
 } from '@/app/types/dashboard';
-import type { Objective, Task } from '@/app/types/objective';
+import type { Objective, Subtask, Task } from '@/app/types/objective';
 import { objectivesData } from '@/data/objectives';
 
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
@@ -62,6 +62,70 @@ const hasMeetingItems = (meeting: MeetingRecord) => [
   meeting.cascadeItems
 ].some((items) => items.length > 0);
 
+
+type StoredSubtask = Partial<Subtask>;
+type StoredTask = Partial<Omit<Task, 'subtasks'>> & {
+  id: number;
+  title: string;
+  subtasks?: StoredSubtask[];
+};
+
+const normalizeTask = (task: StoredTask): { task: Task; changed: boolean } => {
+  const subtasks = Array.isArray(task.subtasks)
+    ? task.subtasks.map((subtask, subtaskIndex) => ({
+        id: subtask.id ?? task.id + subtaskIndex + 1,
+        title: subtask.title ?? '',
+        completed: subtask.completed ?? false
+      }))
+    : [];
+
+  const normalizedTask: Task = {
+    id: task.id,
+    title: task.title,
+    description: task.description ?? '',
+    dueDate: task.dueDate ?? '',
+    subtasks,
+    assignedTo: task.assignedTo ?? '',
+    status: task.status ?? 'planning'
+  };
+
+  const changed = task.description === undefined
+    || task.dueDate === undefined
+    || task.assignedTo === undefined
+    || task.status === undefined
+    || !Array.isArray(task.subtasks)
+    || subtasks.some((subtask, subtaskIndex) => {
+      const storedSubtask = task.subtasks?.[subtaskIndex];
+      return storedSubtask?.id === undefined
+        || storedSubtask.title === undefined
+        || storedSubtask.completed === undefined;
+    });
+
+  return { task: normalizedTask, changed };
+};
+
+const normalizeObjectives = (storedObjectives: Objective[]): { objectives: Objective[]; changed: boolean } => {
+  let changed = false;
+
+  const objectives = storedObjectives.map((objective) => {
+    const storedTasks = Array.isArray(objective.tasks) ? objective.tasks : [];
+    if (!Array.isArray(objective.tasks)) changed = true;
+
+    const tasks = storedTasks.map((task) => {
+      const normalized = normalizeTask(task as StoredTask);
+      if (normalized.changed) changed = true;
+      return normalized.task;
+    });
+
+    return {
+      ...objective,
+      tasks
+    };
+  });
+
+  return { objectives, changed };
+};
+
 export default function Home() {
   const initialMeetings = useMemo(() => getInitialMeetings(), []);
   const [objectives, setObjectives] = useLocalStorage<Objective[]>('leadership-objectives', objectivesData);
@@ -88,13 +152,14 @@ export default function Home() {
   const activeMeeting = meetings[activeMeetingIndex] ?? initialMeetings[0];
   const canNavigateToPreviousMeeting = activeMeetingIndex > 0;
   const canNavigateToNextMeeting = activeMeetingIndex < meetings.length - 1;
+  const normalizedObjectivesResult = useMemo(() => normalizeObjectives(objectives), [objectives]);
+  const normalizedObjectives = normalizedObjectivesResult.objectives;
   const selectedObjective = selectedTask
-    ? objectives.find((objective) => objective.id === selectedTask.objectiveId) ?? null
+    ? normalizedObjectives.find((objective) => objective.id === selectedTask.objectiveId) ?? null
     : null;
   const selectedTaskDetails = selectedObjective && selectedTask
     ? selectedObjective.tasks.find((task) => task.id === selectedTask.taskId) ?? null
     : null;
-
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -109,6 +174,11 @@ export default function Home() {
 
     return () => window.clearTimeout(timeoutId);
   }, [setActiveMeetingId, setMeetings]);
+
+  useEffect(() => {
+    if (!normalizedObjectivesResult.changed) return;
+    setObjectives(normalizedObjectivesResult.objectives);
+  }, [normalizedObjectivesResult, setObjectives]);
 
   const updateObjectiveTitle = (id: number, newTitle: string) => {
     setObjectives(objectives.map((obj) =>
@@ -446,7 +516,7 @@ export default function Home() {
         </div>
 
         <div className="space-y-6">
-          {objectives.map((objective) => (
+          {normalizedObjectives.map((objective) => (
             <ObjectiveCard
               key={objective.id}
               objective={objective}

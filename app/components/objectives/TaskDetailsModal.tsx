@@ -81,10 +81,10 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
           <button
             type="button"
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-2xl text-slate-600 hover:bg-slate-200"
+            className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
             aria-label="Close task details"
           >
-            ×
+            Close
           </button>
         </div>
 
