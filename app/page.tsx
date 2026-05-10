@@ -18,7 +18,7 @@ import type {
   MeetingSectionKey,
   TaskInput
 } from '@/app/types/dashboard';
-import type { Objective, Subtask, Task } from '@/app/types/objective';
+import type { Objective, Subtask, Task, TaskStatus } from '@/app/types/objective';
 import { objectivesData } from '@/data/objectives';
 
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
@@ -316,6 +316,19 @@ export default function Home() {
     ));
   };
 
+  const updateTaskStatus = (objectiveId: number, taskId: number, status: TaskStatus) => {
+    setObjectives(objectives.map((obj) =>
+      obj.id === objectiveId
+        ? {
+            ...obj,
+            tasks: obj.tasks.map((task) => (
+              task.id === taskId ? { ...task, status } : task
+            ))
+          }
+        : obj
+    ));
+  };
+
   const updateTaskInput = (objectiveId: number, input: TaskInput) => {
     setTaskInputs({
       ...taskInputs,
@@ -531,6 +544,7 @@ export default function Home() {
               onTaskInputChange={updateTaskInput}
               onAddTask={addTask}
               onOpenTask={openTaskDetails}
+              onTaskStatusChange={updateTaskStatus}
             />
           ))}
         </div>
