@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   RichTextBlock,
   RichTextColumns,
@@ -17,6 +17,7 @@ interface RichTextEditorProps {
   editorClassName?: string;
   minHeightClassName?: string;
   ariaLabel?: string;
+  onEditingChange?: (isEditing: boolean) => void;
 }
 
 interface RichTextRendererProps {
@@ -319,7 +320,9 @@ const appendInlines = (element: HTMLElement, inlines: RichTextInline[]) => {
 
 const createBlockNode = (block: RichTextBlock): HTMLElement => {
   if (block.type !== "paragraph") {
-    const list = document.createElement(block.type === "bulletList" ? "ul" : "ol");
+    const list = document.createElement(
+      block.type === "bulletList" ? "ul" : "ol",
+    );
     block.items.forEach((item) => {
       const listItem = document.createElement("li");
       appendInlines(listItem, item);
@@ -435,18 +438,21 @@ export function RichTextEditor({
   editorClassName = "",
   minHeightClassName = "min-h-[140px]",
   ariaLabel = "Rich text editor",
+  onEditingChange,
 }: RichTextEditorProps) {
-  const initialDocument = useMemo(() => normalizeRichTextValue(value), [value]);
-  const [documentValue, setDocumentValue] = useState(initialDocument);
-  const [hasContent, setHasContent] = useState(
-    getPlainText(initialDocument).length > 0,
+  const documentValue = useMemo(() => normalizeRichTextValue(value), [value]);
+  const [draftDocument, setDraftDocument] = useState(documentValue);
+  const [isEditing, setIsEditing] = useState(false);
+  const [hasDraftContent, setHasDraftContent] = useState(
+    getPlainText(documentValue).length > 0,
   );
   const [formattingState, setFormattingState] = useState(emptyFormattingState);
   const editorRefs = useRef<Array<HTMLDivElement | null>>([]);
   const activeEditorIndexRef = useRef(0);
-  const lastPublishedRef = useRef(JSON.stringify(initialDocument));
 
-  const updateFormattingState = () => {
+  const updateFormattingState = useCallback(() => {
+    if (!isEditing) return;
+
     setFormattingState({
       bold: queryCommandState("bold"),
       italic: queryCommandState("italic"),
@@ -454,42 +460,67 @@ export function RichTextEditor({
       bulletList: queryCommandState("insertUnorderedList"),
       numberedList: queryCommandState("insertOrderedList"),
     });
-  };
+  }, [isEditing]);
 
   useEffect(() => {
-    const normalized = normalizeRichTextValue(value);
-    const serialized = JSON.stringify(normalized);
-    if (serialized === lastPublishedRef.current) return;
+    if (!isEditing) return;
 
-    setDocumentValue(normalized);
-    setHasContent(getPlainText(normalized).length > 0);
-    lastPublishedRef.current = serialized;
-  }, [value]);
-
-  useEffect(() => {
-    const columnBlocks = documentValue.columnBlocks ?? [documentValue.blocks];
+    const columnBlocks = draftDocument.columnBlocks ?? [draftDocument.blocks];
 
     editorRefs.current.forEach((editor, index) => {
-      if (!editor || index >= documentValue.columns) return;
+      if (!editor || index >= draftDocument.columns) return;
       setEditorBlocks(editor, columnBlocks[index] ?? emptyBlocks());
     });
-  }, [documentValue]);
+  }, [draftDocument, isEditing]);
 
   useEffect(() => {
-    document.addEventListener("selectionchange", updateFormattingState);
-    return () => document.removeEventListener("selectionchange", updateFormattingState);
-  }, []);
+    if (!isEditing) return;
 
-  const publishCurrentContent = (nextColumns = documentValue.columns) => {
-    const nextDocument = serializeEditors(editorRefs.current, nextColumns);
-    setHasContent(getPlainText(nextDocument).length > 0);
-    lastPublishedRef.current = JSON.stringify(nextDocument);
+    document.addEventListener("selectionchange", updateFormattingState);
+    return () =>
+      document.removeEventListener("selectionchange", updateFormattingState);
+  }, [isEditing, updateFormattingState]);
+
+  useEffect(() => () => onEditingChange?.(false), [onEditingChange]);
+
+  const readCurrentDraft = (nextColumns = draftDocument.columns) =>
+    serializeEditors(editorRefs.current, nextColumns);
+
+  const refreshDraftContentState = () => {
+    const nextDocument = readCurrentDraft();
+    setHasDraftContent(getPlainText(nextDocument).length > 0);
+  };
+
+  const startEditing = () => {
+    const normalized = documentValue;
+    setDraftDocument(normalized);
+    setHasDraftContent(getPlainText(normalized).length > 0);
+    setFormattingState(emptyFormattingState);
+    setIsEditing(true);
+    onEditingChange?.(true);
+  };
+
+  const saveEditing = () => {
+    const nextDocument = readCurrentDraft();
+    setDraftDocument(nextDocument);
+    setHasDraftContent(getPlainText(nextDocument).length > 0);
+    setIsEditing(false);
+    setFormattingState(emptyFormattingState);
+    onEditingChange?.(false);
     onChange(nextDocument);
   };
 
+  const cancelEditing = () => {
+    setDraftDocument(documentValue);
+    setHasDraftContent(getPlainText(documentValue).length > 0);
+    setIsEditing(false);
+    setFormattingState(emptyFormattingState);
+    onEditingChange?.(false);
+  };
+
   const focusActiveEditor = () => {
-    const activeEditor = editorRefs.current[activeEditorIndexRef.current]
-      ?? editorRefs.current[0];
+    const activeEditor =
+      editorRefs.current[activeEditorIndexRef.current] ?? editorRefs.current[0];
     activeEditor?.focus();
   };
 
@@ -504,16 +535,15 @@ export function RichTextEditor({
     focusActiveEditor();
     document.execCommand("styleWithCSS", false, "false");
     document.execCommand(command);
-    publishCurrentContent();
+    refreshDraftContentState();
     updateFormattingState();
   };
 
   const updateColumns = (columns: RichTextColumns) => {
-    const currentDocument = serializeEditors(
-      editorRefs.current,
-      documentValue.columns,
-    );
-    const currentColumnBlocks = currentDocument.columnBlocks ?? [currentDocument.blocks];
+    const currentDocument = readCurrentDraft(draftDocument.columns);
+    const currentColumnBlocks = currentDocument.columnBlocks ?? [
+      currentDocument.blocks,
+    ];
     const nextColumnBlocks = normalizeColumnCount(currentColumnBlocks, columns);
     const nextDocument: RichTextDocument = {
       version: 1,
@@ -522,19 +552,46 @@ export function RichTextEditor({
       columnBlocks: nextColumnBlocks,
     };
 
-    activeEditorIndexRef.current = Math.min(activeEditorIndexRef.current, columns - 1);
-    setDocumentValue(nextDocument);
-    setHasContent(getPlainText(nextDocument).length > 0);
-    lastPublishedRef.current = JSON.stringify(nextDocument);
-    onChange(nextDocument);
+    activeEditorIndexRef.current = Math.min(
+      activeEditorIndexRef.current,
+      columns - 1,
+    );
+    setDraftDocument(nextDocument);
+    setHasDraftContent(getPlainText(nextDocument).length > 0);
   };
 
   const toolbarButtonClass = (active: boolean, extraClassName = "") =>
     `rich-text-toolbar-button ${active ? "rich-text-toolbar-button-active" : ""} ${extraClassName}`;
 
+  if (!isEditing) {
+    return (
+      <div
+        className={`rounded-2xl border border-slate-200 bg-white/80 ${className}`}
+      >
+        <div className="flex items-start justify-between gap-3 p-3">
+          <RichTextRenderer
+            value={documentValue}
+            placeholder={placeholder}
+            className="flex-1 text-slate-700"
+          />
+          <button
+            type="button"
+            onClick={startEditing}
+            className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-1 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            aria-label={`Edit ${ariaLabel}`}
+          >
+            Edit
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`rounded-2xl border border-slate-300 bg-white shadow-sm focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 ${className}`}
+      onMouseDown={(event) => event.stopPropagation()}
+      onDragStart={(event) => event.stopPropagation()}
     >
       <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 px-3 py-2 text-sm text-slate-700">
         <button
@@ -600,8 +657,8 @@ export function RichTextEditor({
               type="button"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => updateColumns(columns as RichTextColumns)}
-              className={toolbarButtonClass(documentValue.columns === columns)}
-              aria-pressed={documentValue.columns === columns}
+              className={toolbarButtonClass(draftDocument.columns === columns)}
+              aria-pressed={draftDocument.columns === columns}
             >
               {columns}
             </button>
@@ -610,15 +667,15 @@ export function RichTextEditor({
       </div>
 
       <div className="relative">
-        {!hasContent ? (
+        {!hasDraftContent ? (
           <div className="pointer-events-none absolute left-4 top-3 text-slate-400">
             {placeholder}
           </div>
         ) : null}
         <div
-          className={`rich-text-column-grid rich-text-column-grid-${documentValue.columns}`}
+          className={`rich-text-column-grid rich-text-column-grid-${draftDocument.columns}`}
         >
-          {Array.from({ length: documentValue.columns }, (_, index) => (
+          {Array.from({ length: draftDocument.columns }, (_, index) => (
             <div
               key={index}
               ref={(node) => {
@@ -628,7 +685,7 @@ export function RichTextEditor({
               suppressContentEditableWarning
               role="textbox"
               aria-label={
-                documentValue.columns === 1
+                draftDocument.columns === 1
                   ? ariaLabel
                   : `${ariaLabel} column ${index + 1}`
               }
@@ -640,12 +697,28 @@ export function RichTextEditor({
               }}
               onKeyUp={updateFormattingState}
               onMouseUp={updateFormattingState}
-              onInput={() => publishCurrentContent()}
-              onBlur={() => publishCurrentContent()}
+              onInput={refreshDraftContentState}
               className={`rich-text-editor rich-text-content rich-text-column-pane ${minHeightClassName} px-4 py-3 text-slate-900 outline-none ${editorClassName}`}
             />
           ))}
         </div>
+      </div>
+
+      <div className="flex justify-end gap-2 border-t border-slate-200 px-3 py-2">
+        <button
+          type="button"
+          onClick={saveEditing}
+          className="rounded-lg bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={cancelEditing}
+          className="rounded-lg bg-slate-500 px-3 py-1 text-sm font-medium text-white hover:bg-slate-600"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   );
