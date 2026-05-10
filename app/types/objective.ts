@@ -14,8 +14,10 @@ export interface TaskActivity {
   id: number;
   message: string;
   createdAt: string;
-  type?: 'subtask-completed';
+  type?: 'subtask-completed' | 'subtask-deleted';
   subtaskId?: number;
+  subtaskTitle?: string;
+  subtaskCompleted?: boolean;
 }
 
 export interface Task {

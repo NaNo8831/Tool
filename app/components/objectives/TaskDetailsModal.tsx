@@ -13,7 +13,10 @@ interface TaskDetailsModalProps {
 }
 
 type SaveStatus = 'saving' | 'saved';
-type TaskActivityInput = Pick<TaskActivity, 'message' | 'type' | 'subtaskId'>;
+type TaskActivityInput = Pick<
+  TaskActivity,
+  'message' | 'type' | 'subtaskId' | 'subtaskTitle' | 'subtaskCompleted'
+>;
 
 const statusLabels: Record<Task['status'], string> = {
   planning: 'Planning',
@@ -93,12 +96,20 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
     }
   }, []);
 
-  const createActivity = ({ message, type, subtaskId }: TaskActivityInput): TaskActivity => ({
+  const createActivity = ({
+    message,
+    type,
+    subtaskId,
+    subtaskTitle,
+    subtaskCompleted
+  }: TaskActivityInput): TaskActivity => ({
     id: nextActivityIdRef.current++,
     message,
     createdAt: new Date().toISOString(),
     type,
-    subtaskId
+    subtaskId,
+    subtaskTitle,
+    subtaskCompleted
   });
 
   const handleUpdate = (updates: Partial<Task>, activity?: TaskActivityInput) => {
@@ -176,9 +187,37 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
     const deletedSubtask = subtasks.find((subtask) => subtask.id === subtaskId);
     updateSubtasks(
       subtasks.filter((subtask) => subtask.id !== subtaskId),
-      { message: `Subtask deleted: ${deletedSubtask?.title || 'Untitled subtask'}` }
+      {
+        message: `Subtask deleted: ${deletedSubtask?.title || 'Untitled subtask'}`,
+        type: 'subtask-deleted',
+        subtaskId,
+        subtaskTitle: deletedSubtask?.title || 'Untitled subtask',
+        subtaskCompleted: deletedSubtask?.completed ?? false
+      }
     );
   };
+
+  const restoreDeletedSubtask = (activity: TaskActivity) => {
+    if (activity.type !== 'subtask-deleted' || activity.subtaskId === undefined) return;
+    if (activity.subtaskCompleted || subtasks.some((subtask) => subtask.id === activity.subtaskId)) return;
+
+    handleUpdate({
+      subtasks: [
+        ...subtasks,
+        {
+          id: activity.subtaskId,
+          title: activity.subtaskTitle || 'Untitled subtask',
+          completed: false
+        }
+      ],
+      activityHistory: activityHistory.filter((activityEntry) => activityEntry.id !== activity.id)
+    });
+  };
+
+  const canRestoreDeletedSubtask = (activity: TaskActivity) => activity.type === 'subtask-deleted'
+    && activity.subtaskCompleted === false
+    && activity.subtaskId !== undefined
+    && !subtasks.some((subtask) => subtask.id === activity.subtaskId);
 
   const addComment = () => {
     const text = newCommentText.trim();
@@ -486,7 +525,19 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
                 <ol className="max-h-72 space-y-3 overflow-y-auto pr-1">
                   {activityHistory.map((activity) => (
                     <li key={activity.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                      <p className="text-sm font-medium text-slate-800">{activity.message}</p>
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-medium text-slate-800">{activity.message}</p>
+                        {canRestoreDeletedSubtask(activity) ? (
+                          <button
+                            type="button"
+                            onClick={() => restoreDeletedSubtask(activity)}
+                            className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                            aria-label={`Restore ${activity.subtaskTitle || 'deleted subtask'}`}
+                          >
+                            Restore
+                          </button>
+                        ) : null}
+                      </div>
                       <time className="mt-1 block text-xs text-slate-500" dateTime={activity.createdAt}>
                         {formatTimestamp(activity.createdAt)}
                       </time>

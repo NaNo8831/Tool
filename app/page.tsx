@@ -109,7 +109,9 @@ const normalizeTask = (task: StoredTask): { task: Task; changed: boolean } => {
         message: activity.message ?? '',
         createdAt: activity.createdAt ?? new Date().toISOString(),
         type: activity.type,
-        subtaskId: activity.subtaskId
+        subtaskId: activity.subtaskId,
+        subtaskTitle: activity.subtaskTitle,
+        subtaskCompleted: activity.subtaskCompleted
       }))
     : [];
 
