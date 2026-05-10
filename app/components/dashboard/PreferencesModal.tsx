@@ -1,7 +1,9 @@
 'use client';
 
 import { EditableField } from '@/app/components/ui/EditableField';
+import { RichTextEditor } from '@/app/components/ui/RichTextEditor';
 import type { OrganizationInfo } from '@/app/types/dashboard';
+import type { RichTextDocument } from '@/app/types/richText';
 
 interface PreferencesModalProps {
   isOpen: boolean;
@@ -22,7 +24,7 @@ export function PreferencesModal({
 }: PreferencesModalProps) {
   if (!isOpen) return null;
 
-  const handleSave = (field: keyof OrganizationInfo, value: string) => {
+  const handleSave = (field: keyof OrganizationInfo, value: OrganizationInfo[keyof OrganizationInfo]) => {
     onSave({ ...organizationInfo, [field]: value });
   };
 
@@ -84,40 +86,40 @@ export function PreferencesModal({
           <div className="grid gap-6 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 p-5">
               <label className="block text-2xl font-semibold mb-3 text-slate-950">How Do We Behave?</label>
-              <EditableField
+              <RichTextEditor
                 value={organizationInfo.howBehave}
-                onSave={(value) => handleSave('howBehave', value)}
+                onChange={(value: RichTextDocument) => handleSave('howBehave', value)}
                 placeholder="Enter your values..."
-                multiline
                 className={fieldClasses}
                 editorClassName={editorClasses}
-                actionClassName={actionClasses}
+                minHeightClassName="min-h-[120px]"
+                ariaLabel="How do we behave?"
               />
             </div>
 
             <div className="rounded-2xl border border-slate-200 p-5">
               <label className="block text-2xl font-semibold mb-3 text-slate-950">What Do We Do?</label>
-              <EditableField
+              <RichTextEditor
                 value={organizationInfo.whatDo}
-                onSave={(value) => handleSave('whatDo', value)}
+                onChange={(value: RichTextDocument) => handleSave('whatDo', value)}
                 placeholder="Enter what you do..."
-                multiline
                 className={fieldClasses}
                 editorClassName={editorClasses}
-                actionClassName={actionClasses}
+                minHeightClassName="min-h-[120px]"
+                ariaLabel="What do we do?"
               />
             </div>
 
             <div className="rounded-2xl border border-slate-200 p-5 md:col-span-2">
               <label className="block text-2xl font-semibold mb-3 text-slate-950">How Will We Succeed?</label>
-              <EditableField
+              <RichTextEditor
                 value={organizationInfo.howSucceed}
-                onSave={(value) => handleSave('howSucceed', value)}
+                onChange={(value: RichTextDocument) => handleSave('howSucceed', value)}
                 placeholder="Enter success metrics..."
-                multiline
                 className={fieldClasses}
                 editorClassName={editorClasses}
-                actionClassName={actionClasses}
+                minHeightClassName="min-h-[120px]"
+                ariaLabel="How will we succeed?"
               />
             </div>
           </div>

@@ -24,3 +24,78 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+
+.rich-text-toolbar-button {
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  line-height: 1.25rem;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.rich-text-toolbar-button:hover,
+.rich-text-toolbar-button-active {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.rich-text-content {
+  overflow-wrap: anywhere;
+}
+
+.rich-text-content p {
+  margin: 0 0 0.75rem;
+}
+
+.rich-text-content p:last-child,
+.rich-text-content ul:last-child,
+.rich-text-content ol:last-child {
+  margin-bottom: 0;
+}
+
+.rich-text-content ul,
+.rich-text-content ol {
+  margin: 0 0 0.75rem 1.25rem;
+  padding: 0;
+}
+
+.rich-text-content ul {
+  list-style: disc;
+}
+
+.rich-text-content ol {
+  list-style: decimal;
+}
+
+.rich-text-content li {
+  margin: 0.25rem 0;
+  padding-left: 0.25rem;
+}
+
+.rich-text-column-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.rich-text-column-pane {
+  min-width: 0;
+}
+
+.rich-text-editor:focus {
+  background: rgb(239 246 255 / 0.35);
+}
+
+@media (min-width: 768px) {
+  .rich-text-column-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rich-text-column-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .rich-text-column-grid-2 > .rich-text-column-pane + .rich-text-column-pane,
+  .rich-text-column-grid-3 > .rich-text-column-pane + .rich-text-column-pane {
+    border-left: 1px solid #e2e8f0;
+  }
+}

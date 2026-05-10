@@ -1,3 +1,5 @@
+import type { RichTextValue } from '@/app/types/richText';
+
 export interface Subtask {
   id: number;
   title: string;
@@ -23,7 +25,7 @@ export interface TaskActivity {
 export interface Task {
   id: number;
   title: string;
-  description: string;
+  description: RichTextValue;
   dueDate: string;
   subtasks: Subtask[];
   comments: TaskComment[];
@@ -35,7 +37,7 @@ export interface Task {
 export interface Objective {
   id: number;
   title: string;
-  description: string;
+  description: RichTextValue;
   status: 'planning' | 'in-progress' | 'completed';
   priority: 'high' | 'medium' | 'low';
   dueDate: string;

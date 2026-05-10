@@ -1,11 +1,13 @@
 'use client';
 
-import type { DragEvent } from 'react';
+import { useState, type DragEvent } from 'react';
 import { EditableField } from '@/app/components/ui/EditableField';
+import { RichTextEditor } from '@/app/components/ui/RichTextEditor';
 import { TaskList } from '@/app/components/objectives/TaskList';
 import { objectiveColorClasses } from '@/app/lib/objectiveOptions';
 import type { Objective, TaskStatus } from '@/app/types/objective';
 import type { TaskInput } from '@/app/types/dashboard';
+import type { RichTextDocument } from '@/app/types/richText';
 
 interface ObjectiveCardProps {
   objective: Objective;
@@ -14,7 +16,7 @@ interface ObjectiveCardProps {
   onDragOver: (event: DragEvent<HTMLDivElement>) => void;
   onDrop: (id: number) => void;
   onUpdateTitle: (id: number, title: string) => void;
-  onUpdateDescription: (id: number, description: string) => void;
+  onUpdateDescription: (id: number, description: RichTextDocument) => void;
   onUpdateColor: (id: number, color: Objective['color']) => void;
   onDelete: (id: number) => void;
   onTaskInputChange: (objectiveId: number, input: TaskInput) => void;
@@ -38,13 +40,18 @@ export function ObjectiveCard({
   onOpenTask,
   onTaskStatusChange
 }: ObjectiveCardProps) {
+  const [isEditingRichText, setIsEditingRichText] = useState(false);
+
   return (
     <div
-      draggable
-      onDragStart={() => onDragStart(objective.id)}
+      draggable={!isEditingRichText}
+      onDragStart={() => {
+        if (isEditingRichText) return;
+        onDragStart(objective.id);
+      }}
       onDragOver={onDragOver}
       onDrop={() => onDrop(objective.id)}
-      className={`relative rounded-3xl p-6 shadow bg-white/80 backdrop-blur-sm border-t-[18px] ${objectiveColorClasses[objective.color]} cursor-grab transition hover:shadow-xl`}
+      className={`relative rounded-3xl p-6 shadow bg-white/80 backdrop-blur-sm border-t-[18px] ${objectiveColorClasses[objective.color]} ${isEditingRichText ? 'cursor-default' : 'cursor-grab'} transition hover:shadow-xl`}
     >
       <div className="pr-14 mb-5">
         <EditableField
@@ -53,12 +60,14 @@ export function ObjectiveCard({
           placeholder="Objective title"
           className="text-2xl font-semibold text-slate-900 mb-3"
         />
-        <EditableField
+        <RichTextEditor
           value={objective.description}
-          onSave={(value) => onUpdateDescription(objective.id, value)}
+          onChange={(value) => onUpdateDescription(objective.id, value)}
           placeholder="Objective description"
-          multiline
           className="text-slate-700"
+          minHeightClassName="min-h-[120px]"
+          ariaLabel="Objective description"
+          onEditingChange={setIsEditingRichText}
         />
       </div>
 

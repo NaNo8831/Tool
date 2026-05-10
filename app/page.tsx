@@ -5,6 +5,7 @@ import { PreferencesModal } from '@/app/components/dashboard/PreferencesModal';
 import { MeetingSection } from '@/app/components/meeting/MeetingSection';
 import { ObjectiveCard } from '@/app/components/objectives/ObjectiveCard';
 import { TaskDetailsModal } from '@/app/components/objectives/TaskDetailsModal';
+import { RichTextRenderer } from '@/app/components/ui/RichTextEditor';
 import { useLocalStorage } from '@/app/hooks/useLocalStorage';
 import { useObjectives } from '@/app/hooks/useObjectives';
 import {
@@ -18,6 +19,7 @@ import type {
   MeetingSectionConfig,
   MeetingSectionKey
 } from '@/app/types/dashboard';
+import type { RichTextValue } from '@/app/types/richText';
 
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
 
@@ -251,7 +253,11 @@ export default function Home() {
     }
   };
 
-  const renderMissionValue = (value: string) => {
+  const renderMissionValue = (value: RichTextValue) => {
+    if (typeof value !== 'string') {
+      return <RichTextRenderer value={value} className="text-slate-700" />;
+    }
+
     const entries = value
       .split(/[\n•\u2022]+/)
       .map((item) => item.trim())

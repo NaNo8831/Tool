@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocalStorage } from '@/app/hooks/useLocalStorage';
 import type { TaskInput } from '@/app/types/dashboard';
 import type { Objective, Subtask, Task, TaskActivity, TaskComment, TaskStatus } from '@/app/types/objective';
+import type { RichTextDocument } from '@/app/types/richText';
 import { objectivesData } from '@/data/objectives';
 
 const statusLabels: Record<TaskStatus, string> = {
@@ -147,7 +148,7 @@ export const useObjectives = () => {
     ));
   };
 
-  const updateObjectiveDescription = (id: number, newDescription: string) => {
+  const updateObjectiveDescription = (id: number, newDescription: RichTextDocument) => {
     setObjectives(objectives.map((obj) =>
       obj.id === id ? { ...obj, description: newDescription } : obj
     ));
