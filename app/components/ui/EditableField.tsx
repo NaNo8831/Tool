@@ -8,6 +8,8 @@ interface EditableFieldProps {
   placeholder?: string;
   multiline?: boolean;
   className?: string;
+  editorClassName?: string;
+  actionClassName?: string;
 }
 
 export function EditableField({
@@ -15,7 +17,9 @@ export function EditableField({
   onSave,
   placeholder = 'Click to edit',
   multiline = false,
-  className = ''
+  className = '',
+  editorClassName = '',
+  actionClassName = ''
 }: EditableFieldProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -49,7 +53,7 @@ export function EditableField({
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full min-h-[120px] px-3 py-3 border border-slate-300 rounded text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            className={`w-full min-h-[120px] px-3 py-3 border border-slate-300 rounded text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300 ${editorClassName}`}
             placeholder={placeholder}
           />
         ) : (
@@ -58,20 +62,20 @@ export function EditableField({
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full px-3 py-2 border border-slate-300 rounded text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            className={`w-full px-3 py-2 border border-slate-300 rounded text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300 ${editorClassName}`}
             placeholder={placeholder}
           />
         )}
         <div className="flex gap-2">
           <button
             onClick={handleSave}
-            className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+            className={`px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 ${actionClassName}`}
           >
             Save
           </button>
           <button
             onClick={handleCancel}
-            className="px-3 py-1 bg-slate-500 text-white rounded text-sm hover:bg-slate-600"
+            className={`px-3 py-1 bg-slate-500 text-white rounded text-sm hover:bg-slate-600 ${actionClassName}`}
           >
             Cancel
           </button>
