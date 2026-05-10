@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { RichTextEditor } from '@/app/components/ui/RichTextEditor';
 import { taskStatusOptions } from '@/app/lib/objectiveOptions';
 import type { Subtask, Task, TaskActivity, TaskComment } from '@/app/types/objective';
 
@@ -338,12 +339,12 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
 
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-slate-700">Description</span>
-              <textarea
+              <RichTextEditor
                 value={task.description ?? ''}
-                onChange={(event) => handleUpdate({ description: event.target.value })}
+                onChange={(value) => handleUpdate({ description: value })}
                 placeholder="Add context, goals, links, or acceptance criteria for this task."
-                rows={8}
-                className="w-full resize-y rounded-2xl border border-slate-300 px-4 py-3 text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                minHeightClassName="min-h-[220px]"
+                ariaLabel="Task description"
               />
             </label>
 

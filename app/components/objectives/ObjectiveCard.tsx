@@ -2,10 +2,12 @@
 
 import type { DragEvent } from 'react';
 import { EditableField } from '@/app/components/ui/EditableField';
+import { RichTextEditor } from '@/app/components/ui/RichTextEditor';
 import { TaskList } from '@/app/components/objectives/TaskList';
 import { objectiveColorClasses } from '@/app/lib/objectiveOptions';
 import type { Objective, TaskStatus } from '@/app/types/objective';
 import type { TaskInput } from '@/app/types/dashboard';
+import type { RichTextDocument } from '@/app/types/richText';
 
 interface ObjectiveCardProps {
   objective: Objective;
@@ -14,7 +16,7 @@ interface ObjectiveCardProps {
   onDragOver: (event: DragEvent<HTMLDivElement>) => void;
   onDrop: (id: number) => void;
   onUpdateTitle: (id: number, title: string) => void;
-  onUpdateDescription: (id: number, description: string) => void;
+  onUpdateDescription: (id: number, description: RichTextDocument) => void;
   onUpdateColor: (id: number, color: Objective['color']) => void;
   onDelete: (id: number) => void;
   onTaskInputChange: (objectiveId: number, input: TaskInput) => void;
@@ -53,12 +55,13 @@ export function ObjectiveCard({
           placeholder="Objective title"
           className="text-2xl font-semibold text-slate-900 mb-3"
         />
-        <EditableField
+        <RichTextEditor
           value={objective.description}
-          onSave={(value) => onUpdateDescription(objective.id, value)}
+          onChange={(value) => onUpdateDescription(objective.id, value)}
           placeholder="Objective description"
-          multiline
           className="text-slate-700"
+          minHeightClassName="min-h-[120px]"
+          ariaLabel="Objective description"
         />
       </div>
 

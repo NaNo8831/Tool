@@ -1,11 +1,12 @@
 import type { Dispatch, SetStateAction } from 'react';
+import type { RichTextValue } from '@/app/types/richText';
 
 export interface OrganizationInfo {
   whyExist: string;
   rallyCry: string;
-  howBehave: string;
-  whatDo: string;
-  howSucceed: string;
+  howBehave: RichTextValue;
+  whatDo: RichTextValue;
+  howSucceed: RichTextValue;
 }
 
 export interface MeetingItem {
