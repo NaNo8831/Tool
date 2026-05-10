@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { taskStatusOptions } from '@/app/lib/objectiveOptions';
-import type { Subtask, Task, TaskComment } from '@/app/types/objective';
+import type { Subtask, Task, TaskActivity, TaskComment } from '@/app/types/objective';
 
 interface TaskDetailsModalProps {
   task: Task;
@@ -13,6 +13,10 @@ interface TaskDetailsModalProps {
 }
 
 type SaveStatus = 'saving' | 'saved';
+type TaskActivityInput = Pick<
+  TaskActivity,
+  'message' | 'type' | 'subtaskId' | 'subtaskTitle' | 'subtaskCompleted'
+>;
 
 const statusLabels: Record<Task['status'], string> = {
   planning: 'Planning',
@@ -24,12 +28,37 @@ const statusLabels: Record<Task['status'], string> = {
 export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUpdate }: TaskDetailsModalProps) {
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [newCommentText, setNewCommentText] = useState('');
+  const [draftTitle, setDraftTitle] = useState(task.title);
+  const [draftAssignedTo, setDraftAssignedTo] = useState(task.assignedTo ?? '');
+  const [draftDueDate, setDraftDueDate] = useState(task.dueDate ?? '');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const subtasks = useMemo(() => task.subtasks ?? [], [task.subtasks]);
   const comments = useMemo(() => task.comments ?? [], [task.comments]);
+  const activityHistory = useMemo(() => task.activityHistory ?? [], [task.activityHistory]);
   const saveStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nextSubtaskIdRef = useRef(Math.max(0, ...subtasks.map((subtask) => subtask.id)) + 1);
   const nextCommentIdRef = useRef(Math.max(0, ...comments.map((comment) => comment.id)) + 1);
+  const nextActivityIdRef = useRef(Math.max(0, ...activityHistory.map((activity) => activity.id)) + 1);
+  const lastActivityValuesRef = useRef({
+    taskId: task.id,
+    title: task.title,
+    assignedTo: task.assignedTo ?? '',
+    dueDate: task.dueDate ?? ''
+  });
+
+  useEffect(() => {
+    if (lastActivityValuesRef.current.taskId !== task.id) {
+      setDraftTitle(task.title);
+      setDraftAssignedTo(task.assignedTo ?? '');
+      setDraftDueDate(task.dueDate ?? '');
+      lastActivityValuesRef.current = {
+        taskId: task.id,
+        title: task.title,
+        assignedTo: task.assignedTo ?? '',
+        dueDate: task.dueDate ?? ''
+      };
+    }
+  }, [task.id, task.title, task.assignedTo, task.dueDate]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -54,14 +83,42 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
     );
   }, [comments]);
 
+  useEffect(() => {
+    nextActivityIdRef.current = Math.max(
+      nextActivityIdRef.current,
+      Math.max(0, ...activityHistory.map((activity) => activity.id)) + 1
+    );
+  }, [activityHistory]);
+
   useEffect(() => () => {
     if (saveStatusTimeoutRef.current) {
       clearTimeout(saveStatusTimeoutRef.current);
     }
   }, []);
 
-  const handleUpdate = (updates: Partial<Task>) => {
-    onUpdate(updates);
+  const createActivity = ({
+    message,
+    type,
+    subtaskId,
+    subtaskTitle,
+    subtaskCompleted
+  }: TaskActivityInput): TaskActivity => ({
+    id: nextActivityIdRef.current++,
+    message,
+    createdAt: new Date().toISOString(),
+    type,
+    subtaskId,
+    subtaskTitle,
+    subtaskCompleted
+  });
+
+  const handleUpdate = (updates: Partial<Task>, activity?: TaskActivityInput) => {
+    onUpdate({
+      ...updates,
+      ...(activity
+        ? { activityHistory: [createActivity(activity), ...activityHistory] }
+        : {})
+    });
     setSaveStatus('saving');
 
     if (saveStatusTimeoutRef.current) {
@@ -73,8 +130,8 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
     }, 500);
   };
 
-  const updateSubtasks = (updatedSubtasks: Subtask[]) => {
-    handleUpdate({ subtasks: updatedSubtasks });
+  const updateSubtasks = (updatedSubtasks: Subtask[], activity?: TaskActivityInput) => {
+    handleUpdate({ subtasks: updatedSubtasks }, activity);
   };
 
   const updateComments = (updatedComments: TaskComment[]) => {
@@ -92,19 +149,75 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
         title,
         completed: false
       }
-    ]);
+    ], { message: `Subtask added: ${title}` });
     setNewSubtaskTitle('');
   };
 
   const updateSubtask = (subtaskId: number, updates: Partial<Subtask>) => {
-    updateSubtasks(subtasks.map((subtask) => (
+    const currentSubtask = subtasks.find((subtask) => subtask.id === subtaskId);
+    const updatedSubtasks = subtasks.map((subtask) => (
       subtask.id === subtaskId ? { ...subtask, ...updates } : subtask
-    )));
+    ));
+
+    if (updates.completed === true && currentSubtask?.completed === false) {
+      updateSubtasks(updatedSubtasks, {
+        message: `Subtask completed: ${currentSubtask.title || 'Untitled subtask'}`,
+        type: 'subtask-completed',
+        subtaskId
+      });
+      return;
+    }
+
+    if (updates.completed === false && currentSubtask?.completed === true) {
+      handleUpdate({
+        subtasks: updatedSubtasks,
+        activityHistory: activityHistory.filter((activity) => (
+          activity.type === 'subtask-completed'
+            ? activity.subtaskId !== subtaskId
+            : activity.message !== `Subtask completed: ${currentSubtask.title || 'Untitled subtask'}`
+        ))
+      });
+      return;
+    }
+
+    updateSubtasks(updatedSubtasks);
   };
 
   const deleteSubtask = (subtaskId: number) => {
-    updateSubtasks(subtasks.filter((subtask) => subtask.id !== subtaskId));
+    const deletedSubtask = subtasks.find((subtask) => subtask.id === subtaskId);
+    updateSubtasks(
+      subtasks.filter((subtask) => subtask.id !== subtaskId),
+      {
+        message: `Subtask deleted: ${deletedSubtask?.title || 'Untitled subtask'}`,
+        type: 'subtask-deleted',
+        subtaskId,
+        subtaskTitle: deletedSubtask?.title || 'Untitled subtask',
+        subtaskCompleted: deletedSubtask?.completed ?? false
+      }
+    );
   };
+
+  const restoreDeletedSubtask = (activity: TaskActivity) => {
+    if (activity.type !== 'subtask-deleted' || activity.subtaskId === undefined) return;
+    if (activity.subtaskCompleted || subtasks.some((subtask) => subtask.id === activity.subtaskId)) return;
+
+    handleUpdate({
+      subtasks: [
+        ...subtasks,
+        {
+          id: activity.subtaskId,
+          title: activity.subtaskTitle || 'Untitled subtask',
+          completed: false
+        }
+      ],
+      activityHistory: activityHistory.filter((activityEntry) => activityEntry.id !== activity.id)
+    });
+  };
+
+  const canRestoreDeletedSubtask = (activity: TaskActivity) => activity.type === 'subtask-deleted'
+    && activity.subtaskCompleted === false
+    && activity.subtaskId !== undefined
+    && !subtasks.some((subtask) => subtask.id === activity.subtaskId);
 
   const addComment = () => {
     const text = newCommentText.trim();
@@ -125,7 +238,38 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
     updateComments(comments.filter((comment) => comment.id !== commentId));
   };
 
-  const formatCommentTimestamp = (createdAt: string) => {
+  const commitTitleActivity = () => {
+    if (draftTitle === lastActivityValuesRef.current.title) return;
+
+    lastActivityValuesRef.current.title = draftTitle;
+    handleUpdate({ title: draftTitle }, { message: `Title changed to ${draftTitle || 'Untitled task'}` });
+  };
+
+  const commitAssignedToActivity = () => {
+    if (draftAssignedTo === lastActivityValuesRef.current.assignedTo) return;
+
+    lastActivityValuesRef.current.assignedTo = draftAssignedTo;
+    handleUpdate({ assignedTo: draftAssignedTo }, { message: `Assignee changed to ${draftAssignedTo || 'Unassigned'}` });
+  };
+
+  const updateDueDate = (dueDate: string) => {
+    setDraftDueDate(dueDate);
+    if (dueDate === lastActivityValuesRef.current.dueDate) {
+      handleUpdate({ dueDate });
+      return;
+    }
+
+    lastActivityValuesRef.current.dueDate = dueDate;
+    handleUpdate({ dueDate }, { message: `Due date changed to ${dueDate || 'No due date'}` });
+  };
+
+  const updateStatus = (status: Task['status']) => {
+    if (status === task.status) return;
+
+    handleUpdate({ status }, { message: `Status changed to ${statusLabels[status]}` });
+  };
+
+  const formatTimestamp = (createdAt: string) => {
     const timestamp = new Date(createdAt);
     if (Number.isNaN(timestamp.getTime())) return 'Unknown time';
 
@@ -133,6 +277,10 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
       dateStyle: 'medium',
       timeStyle: 'short'
     });
+  };
+
+  const formatCommentTimestamp = (createdAt: string) => {
+    return formatTimestamp(createdAt);
   };
 
   return (
@@ -177,8 +325,12 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
               <span className="sr-only">Task title</span>
               <input
                 id="task-details-title"
-                value={task.title}
-                onChange={(event) => handleUpdate({ title: event.target.value })}
+                value={draftTitle}
+                onChange={(event) => {
+                  setDraftTitle(event.target.value);
+                  handleUpdate({ title: event.target.value });
+                }}
+                onBlur={commitTitleActivity}
                 placeholder="Task title"
                 className="w-full rounded-2xl border border-transparent px-1 py-2 text-3xl font-bold text-slate-950 outline-none hover:border-slate-200 focus:border-blue-400 focus:bg-blue-50/40"
               />
@@ -319,7 +471,7 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
               <span className="mb-2 block text-sm font-semibold text-slate-700">Status</span>
               <select
                 value={task.status}
-                onChange={(event) => handleUpdate({ status: event.target.value as Task['status'] })}
+                onChange={(event) => updateStatus(event.target.value as Task['status'])}
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
               >
                 {taskStatusOptions.map((status) => (
@@ -331,8 +483,12 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-slate-700">Assigned person</span>
               <input
-                value={task.assignedTo ?? ''}
-                onChange={(event) => handleUpdate({ assignedTo: event.target.value })}
+                value={draftAssignedTo}
+                onChange={(event) => {
+                  setDraftAssignedTo(event.target.value);
+                  handleUpdate({ assignedTo: event.target.value });
+                }}
+                onBlur={commitAssignedToActivity}
                 placeholder="Unassigned"
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
               />
@@ -342,8 +498,8 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
               <span className="mb-2 block text-sm font-semibold text-slate-700">Due date</span>
               <input
                 type="date"
-                value={task.dueDate ?? ''}
-                onChange={(event) => handleUpdate({ dueDate: event.target.value })}
+                value={draftDueDate}
+                onChange={(event) => updateDueDate(event.target.value)}
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
               />
             </label>
@@ -352,6 +508,47 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
               <p className="font-semibold text-slate-900">Card preview</p>
               <p className="mt-2 line-clamp-2">{task.title || 'Untitled task'}</p>
               <p className="mt-3 text-xs uppercase tracking-wide text-slate-400">Details auto-save to this objective.</p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold text-slate-900">Recent activity</h3>
+                  <p className="text-sm text-slate-500">Recent tracked task changes.</p>
+                </div>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                  {activityHistory.length}
+                </span>
+              </div>
+
+              {activityHistory.length > 0 ? (
+                <ol className="max-h-72 space-y-3 overflow-y-auto pr-1">
+                  {activityHistory.map((activity) => (
+                    <li key={activity.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-medium text-slate-800">{activity.message}</p>
+                        {canRestoreDeletedSubtask(activity) ? (
+                          <button
+                            type="button"
+                            onClick={() => restoreDeletedSubtask(activity)}
+                            className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                            aria-label={`Restore ${activity.subtaskTitle || 'deleted subtask'}`}
+                          >
+                            Restore
+                          </button>
+                        ) : null}
+                      </div>
+                      <time className="mt-1 block text-xs text-slate-500" dateTime={activity.createdAt}>
+                        {formatTimestamp(activity.createdAt)}
+                      </time>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-500">
+                  No tracked activity yet.
+                </p>
+              )}
             </div>
 
             <button

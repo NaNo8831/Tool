@@ -18,10 +18,17 @@ import type {
   MeetingSectionKey,
   TaskInput
 } from '@/app/types/dashboard';
-import type { Objective, Subtask, Task, TaskComment, TaskStatus } from '@/app/types/objective';
+import type { Objective, Subtask, Task, TaskActivity, TaskComment, TaskStatus } from '@/app/types/objective';
 import { objectivesData } from '@/data/objectives';
 
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
+
+const statusLabels: Record<TaskStatus, string> = {
+  planning: 'Planning',
+  'in-progress': 'In Progress',
+  waiting: 'Waiting',
+  completed: 'Completed'
+};
 
 const createBlankMeeting = (): MeetingRecord => ({
   id: Date.now(),
@@ -65,12 +72,20 @@ const hasMeetingItems = (meeting: MeetingRecord) => [
 
 type StoredSubtask = Partial<Subtask>;
 type StoredTaskComment = Partial<TaskComment>;
-type StoredTask = Partial<Omit<Task, 'subtasks' | 'comments'>> & {
+type StoredTaskActivity = Partial<TaskActivity>;
+type StoredTask = Partial<Omit<Task, 'subtasks' | 'comments' | 'activityHistory'>> & {
   id: number;
   title: string;
   subtasks?: StoredSubtask[];
   comments?: StoredTaskComment[];
+  activityHistory?: StoredTaskActivity[];
 };
+
+const createTaskActivity = (message: string): TaskActivity => ({
+  id: Date.now(),
+  message,
+  createdAt: new Date().toISOString()
+});
 
 const normalizeTask = (task: StoredTask): { task: Task; changed: boolean } => {
   const subtasks = Array.isArray(task.subtasks)
@@ -88,6 +103,18 @@ const normalizeTask = (task: StoredTask): { task: Task; changed: boolean } => {
       }))
     : [];
 
+  const activityHistory = Array.isArray(task.activityHistory)
+    ? task.activityHistory.map((activity, activityIndex) => ({
+        id: activity.id ?? task.id + activityIndex + 1,
+        message: activity.message ?? '',
+        createdAt: activity.createdAt ?? new Date().toISOString(),
+        type: activity.type,
+        subtaskId: activity.subtaskId,
+        subtaskTitle: activity.subtaskTitle,
+        subtaskCompleted: activity.subtaskCompleted
+      }))
+    : [];
+
   const normalizedTask: Task = {
     id: task.id,
     title: task.title,
@@ -95,6 +122,7 @@ const normalizeTask = (task: StoredTask): { task: Task; changed: boolean } => {
     dueDate: task.dueDate ?? '',
     subtasks,
     comments,
+    activityHistory,
     assignedTo: task.assignedTo ?? '',
     status: task.status ?? 'planning'
   };
@@ -105,6 +133,7 @@ const normalizeTask = (task: StoredTask): { task: Task; changed: boolean } => {
     || task.status === undefined
     || !Array.isArray(task.subtasks)
     || !Array.isArray(task.comments)
+    || !Array.isArray(task.activityHistory)
     || subtasks.some((subtask, subtaskIndex) => {
       const storedSubtask = task.subtasks?.[subtaskIndex];
       return storedSubtask?.id === undefined
@@ -116,6 +145,12 @@ const normalizeTask = (task: StoredTask): { task: Task; changed: boolean } => {
       return storedComment?.id === undefined
         || storedComment.text === undefined
         || storedComment.createdAt === undefined;
+    })
+    || activityHistory.some((activity, activityIndex) => {
+      const storedActivity = task.activityHistory?.[activityIndex];
+      return storedActivity?.id === undefined
+        || storedActivity.message === undefined
+        || storedActivity.createdAt === undefined;
     });
 
   return { task: normalizedTask, changed };
@@ -292,6 +327,7 @@ export default function Home() {
       dueDate: '',
       subtasks: [],
       comments: [],
+      activityHistory: [],
       status: 'planning',
       assignedTo: assignee || ''
     };
@@ -339,9 +375,18 @@ export default function Home() {
       obj.id === objectiveId
         ? {
             ...obj,
-            tasks: obj.tasks.map((task) => (
-              task.id === taskId ? { ...task, status } : task
-            ))
+            tasks: obj.tasks.map((task) => {
+              if (task.id !== taskId || task.status === status) return task;
+
+              return {
+                ...task,
+                status,
+                activityHistory: [
+                  createTaskActivity(`Status changed to ${statusLabels[status]}`),
+                  ...(task.activityHistory ?? [])
+                ]
+              };
+            })
           }
         : obj
     ));

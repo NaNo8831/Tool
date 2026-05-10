@@ -10,6 +10,16 @@ export interface TaskComment {
   createdAt: string;
 }
 
+export interface TaskActivity {
+  id: number;
+  message: string;
+  createdAt: string;
+  type?: 'subtask-completed' | 'subtask-deleted';
+  subtaskId?: number;
+  subtaskTitle?: string;
+  subtaskCompleted?: boolean;
+}
+
 export interface Task {
   id: number;
   title: string;
@@ -17,6 +27,7 @@ export interface Task {
   dueDate: string;
   subtasks: Subtask[];
   comments: TaskComment[];
+  activityHistory: TaskActivity[];
   assignedTo: string;
   status: 'planning' | 'in-progress' | 'waiting' | 'completed';
 }
