@@ -565,13 +565,6 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="bg-amber-50 rounded-3xl p-6 md:p-8 shadow border border-amber-100">
-            <h2 className="font-bold text-2xl mb-4 text-black">Rally Cry</h2>
-            <p className="text-3xl font-bold leading-snug text-slate-900 whitespace-pre-line">
-              {organizationInfoWithDefaults.rallyCry || "Rally Cry"}
-            </p>
-          </section>
-
           <div className="grid md:grid-cols-3 gap-5">
             <div className="bg-white rounded-3xl p-5 shadow">
               <h2 className="font-bold text-lg mb-3 text-black">
@@ -592,7 +585,54 @@ export default function Home() {
               {renderMissionValue(organizationInfoWithDefaults.howSucceed)}
             </div>
           </div>
+
+          <section className="bg-amber-50 rounded-3xl p-6 md:p-8 shadow border border-amber-100">
+            <h2 className="font-bold text-2xl mb-4 text-black">Top Priority</h2>
+            <p className="text-3xl font-bold leading-snug text-slate-900 whitespace-pre-line">
+              {organizationInfoWithDefaults.rallyCry || "Top Priority"}
+            </p>
+          </section>
         </div>
+
+        <section className="mb-10 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+                SOP Workflow
+              </p>
+              <h2 className="text-2xl font-bold text-slate-900">
+                From priority to repeatable operations
+              </h2>
+            </div>
+            <p className="max-w-2xl text-sm text-slate-500">
+              Keep the operating rhythm lightweight: define the need, document the standard, assign ownership, and review it in meetings.
+            </p>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-4">
+            {[
+              ["1", "Identify", "Name the recurring work or gap tied to the top priority."],
+              ["2", "Document", "Capture the simplest repeatable standard for the team."],
+              ["3", "Assign", "Clarify the owner and where follow-up actions live."],
+              ["4", "Review", "Inspect adoption and update the SOP when reality changes."],
+            ].map(([step, title, description]) => (
+              <div
+                key={step}
+                className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4"
+              >
+                <div className="mb-3 flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+                    {step}
+                  </span>
+                  <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+                </div>
+                <p className="text-sm leading-relaxed text-slate-600">
+                  {description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h2 className="text-3xl font-bold text-slate-900">
