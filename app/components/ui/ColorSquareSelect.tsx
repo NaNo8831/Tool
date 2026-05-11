@@ -1,0 +1,93 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { objectiveColorOptions } from '@/app/lib/objectiveOptions';
+import type { ObjectiveColor } from '@/app/types/objective';
+
+interface ColorSquareSelectProps {
+  value: ObjectiveColor;
+  onChange: (color: ObjectiveColor) => void;
+  ariaLabel: string;
+}
+
+export function ColorSquareSelect({ value, onChange, ariaLabel }: ColorSquareSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const selectedOption = objectiveColorOptions.find((option) => option.value === value) ?? objectiveColorOptions[0];
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (containerRef.current?.contains(event.target as Node)) return;
+      setIsOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative inline-flex shrink-0"
+      onClick={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
+      onDragStart={(event) => event.stopPropagation()}
+    >
+      <button
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+      >
+        <span
+          className={`h-4 w-4 rounded-sm border border-slate-200 ${selectedOption.swatchClass}`}
+          aria-hidden="true"
+        />
+      </button>
+
+      {isOpen ? (
+        <div
+          role="listbox"
+          aria-label={ariaLabel}
+          className="absolute right-0 top-10 z-30 flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+        >
+          {objectiveColorOptions.map((option) => {
+            const isSelected = option.value === selectedOption.value;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="option"
+                aria-label={option.label}
+                aria-selected={isSelected}
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                className={`flex h-7 w-7 items-center justify-center rounded-md border bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 ${isSelected ? 'border-slate-400 ring-1 ring-slate-300' : 'border-slate-200'}`}
+              >
+                <span
+                  className={`h-4 w-4 rounded-sm ${option.swatchClass}`}
+                  aria-hidden="true"
+                />
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}

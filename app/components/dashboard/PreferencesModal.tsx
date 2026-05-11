@@ -70,19 +70,6 @@ export function PreferencesModal({
             />
           </section>
 
-          <section className="rounded-3xl border border-amber-100 bg-amber-50/80 p-6 shadow-sm">
-            <label className="block text-3xl font-bold mb-4 text-slate-950">Rally Cry</label>
-            <EditableField
-              value={organizationInfo.rallyCry}
-              onSave={(value) => handleSave('rallyCry', value)}
-              placeholder="Rally Cry"
-              multiline
-              className="bg-white/80 p-5 rounded-2xl text-3xl font-bold leading-snug text-slate-950 min-h-24"
-              editorClassName="text-3xl font-bold leading-snug min-h-[140px]"
-              actionClassName={actionClasses}
-            />
-          </section>
-
           <div className="grid gap-6 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 p-5">
               <label className="block text-2xl font-semibold mb-3 text-slate-950">How Do We Behave?</label>
@@ -123,6 +110,19 @@ export function PreferencesModal({
               />
             </div>
           </div>
+
+          <section className="rounded-3xl border border-blue-100 bg-blue-50/80 p-6 shadow-sm">
+            <label className="block text-3xl font-bold mb-4 text-slate-950">Top Priority</label>
+            <EditableField
+              value={organizationInfo.rallyCry}
+              onSave={(value) => handleSave('rallyCry', value)}
+              placeholder="Top Priority"
+              multiline
+              className="bg-white/80 p-5 rounded-2xl text-3xl font-bold leading-snug text-slate-950 min-h-24"
+              editorClassName="text-3xl font-bold leading-snug min-h-[140px]"
+              actionClassName={actionClasses}
+            />
+          </section>
         </div>
 
         <button

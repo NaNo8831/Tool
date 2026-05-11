@@ -15,29 +15,31 @@ function readLocalStorageValue<T>(key: string): T | null {
   }
 }
 
-export function useLocalStorage<T>(key: string, initialValue: T): [T, Dispatch<SetStateAction<T>>] {
+export function useLocalStorage<T>(key: string, initialValue: T): [T, Dispatch<SetStateAction<T>>, boolean] {
   const [value, setValue] = useState<T>(initialValue);
-  const hasLoadedStoredValue = useRef(false);
+  const [hasLoadedStoredValue, setHasLoadedStoredValue] = useState(false);
+  const hasLoadedStoredValueRef = useRef(false);
 
   useEffect(() => {
-    hasLoadedStoredValue.current = false;
+    hasLoadedStoredValueRef.current = false;
 
     const timeoutId = window.setTimeout(() => {
       const storedValue = readLocalStorageValue<T>(key);
-      hasLoadedStoredValue.current = true;
-
       if (storedValue !== null) {
         setValue(storedValue);
       }
+
+      hasLoadedStoredValueRef.current = true;
+      setHasLoadedStoredValue(true);
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
   }, [key]);
 
   useEffect(() => {
-    if (!hasLoadedStoredValue.current) return;
+    if (!hasLoadedStoredValue || !hasLoadedStoredValueRef.current) return;
     window.localStorage.setItem(key, JSON.stringify(value));
-  }, [key, value]);
+  }, [hasLoadedStoredValue, key, value]);
 
-  return [value, setValue];
+  return [value, setValue, hasLoadedStoredValue];
 }
