@@ -10,16 +10,23 @@ import { objectivesData } from '@/data/objectives';
 const statusLabels: Record<TaskStatus, string> = {
   planning: 'Planning',
   'in-progress': 'In Progress',
-  waiting: 'Waiting',
   completed: 'Completed'
+};
+
+type LegacyTaskStatus = TaskStatus | 'waiting';
+
+const normalizeTaskStatus = (status: LegacyTaskStatus | undefined): TaskStatus => {
+  if (status === 'waiting') return 'in-progress';
+  return status ?? 'planning';
 };
 
 type StoredSubtask = Partial<Subtask>;
 type StoredTaskComment = Partial<TaskComment>;
 type StoredTaskActivity = Partial<TaskActivity>;
-type StoredTask = Partial<Omit<Task, 'subtasks' | 'comments' | 'activityHistory'>> & {
+type StoredTask = Partial<Omit<Task, 'subtasks' | 'comments' | 'activityHistory' | 'status'>> & {
   id: number;
   title: string;
+  status?: LegacyTaskStatus;
   subtasks?: StoredSubtask[];
   comments?: StoredTaskComment[];
   activityHistory?: StoredTaskActivity[];
@@ -68,13 +75,14 @@ const normalizeTask = (task: StoredTask): { task: Task; changed: boolean } => {
     comments,
     activityHistory,
     assignedTo: task.assignedTo ?? '',
-    status: task.status ?? 'planning'
+    status: normalizeTaskStatus(task.status)
   };
 
   const changed = task.description === undefined
     || task.dueDate === undefined
     || task.assignedTo === undefined
     || task.status === undefined
+    || task.status === 'waiting'
     || !Array.isArray(task.subtasks)
     || !Array.isArray(task.comments)
     || !Array.isArray(task.activityHistory)

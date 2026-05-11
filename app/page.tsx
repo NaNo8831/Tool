@@ -849,7 +849,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="grid gap-6 xl:grid-cols-2">
           {objectives.map((objective) => (
             <ObjectiveCard
               key={objective.id}

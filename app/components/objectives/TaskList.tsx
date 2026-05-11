@@ -2,7 +2,7 @@
 
 import { useState, type DragEvent } from 'react';
 import { taskStatusOptions } from '@/app/lib/objectiveOptions';
-import type { Objective, Task, TaskStatus } from '@/app/types/objective';
+import type { Objective, TaskStatus } from '@/app/types/objective';
 import type { TaskInput } from '@/app/types/dashboard';
 
 interface TaskListProps {
@@ -14,10 +14,9 @@ interface TaskListProps {
   onTaskStatusChange: (objectiveId: number, taskId: number, status: TaskStatus) => void;
 }
 
-const statusLabels: Record<Task['status'], string> = {
+const statusLabels: Record<TaskStatus, string> = {
   planning: 'Planning',
   'in-progress': 'In Progress',
-  waiting: 'Waiting',
   completed: 'Completed'
 };
 
@@ -75,7 +74,7 @@ export function TaskList({
 
   return (
     <>
-      <div className="grid gap-4 md:grid-cols-4 mb-6">
+      <div className="grid gap-4 md:grid-cols-3 mb-6">
         {taskStatusOptions.map((status) => (
           <div
             key={status}

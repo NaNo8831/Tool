@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { RichTextEditor } from '@/app/components/ui/RichTextEditor';
 import { taskStatusOptions } from '@/app/lib/objectiveOptions';
-import type { Subtask, Task, TaskActivity, TaskComment } from '@/app/types/objective';
+import type { Subtask, Task, TaskActivity, TaskComment, TaskStatus } from '@/app/types/objective';
 
 interface TaskDetailsModalProps {
   task: Task;
@@ -19,10 +19,9 @@ type TaskActivityInput = Pick<
   'message' | 'type' | 'subtaskId' | 'subtaskTitle' | 'subtaskCompleted'
 >;
 
-const statusLabels: Record<Task['status'], string> = {
+const statusLabels: Record<TaskStatus, string> = {
   planning: 'Planning',
   'in-progress': 'In Progress',
-  waiting: 'Waiting',
   completed: 'Completed'
 };
 
@@ -264,7 +263,7 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
     handleUpdate({ dueDate }, { message: `Due date changed to ${dueDate || 'No due date'}` });
   };
 
-  const updateStatus = (status: Task['status']) => {
+  const updateStatus = (status: TaskStatus) => {
     if (status === task.status) return;
 
     handleUpdate({ status }, { message: `Status changed to ${statusLabels[status]}` });
@@ -474,7 +473,7 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
               <span className="mb-2 block text-sm font-semibold text-slate-700">Status</span>
               <select
                 value={task.status}
-                onChange={(event) => updateStatus(event.target.value as Task['status'])}
+                onChange={(event) => updateStatus(event.target.value as TaskStatus)}
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
               >
                 {taskStatusOptions.map((status) => (
