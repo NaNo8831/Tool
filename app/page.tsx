@@ -965,41 +965,42 @@ export default function Home() {
           </section>
         </div>
 
-        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <h2 className="text-3xl font-bold text-slate-900">
-            Defining Objectives
-          </h2>
-          <div className="flex items-center gap-2">
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+              Defining Objectives
+            </p>
             <button
               type="button"
               onClick={addObjective}
-              className="rounded-full border border-slate-300 px-4 py-2 bg-white text-slate-800 hover:bg-slate-50"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-xl font-semibold leading-none text-white shadow-sm hover:bg-blue-700"
+              aria-label="Add defining objective"
             >
-              + Add Section
+              +
             </button>
           </div>
-        </div>
 
-        <div className="grid gap-6 xl:grid-cols-2">
-          {objectives.map((objective) => (
-            <ObjectiveCard
-              key={objective.id}
-              objective={objective}
-              taskInput={taskInputs[objective.id]}
-              onDragStart={handleObjectiveDragStart}
-              onDragOver={handleDragOver}
-              onDrop={handleObjectiveDrop}
-              onUpdateTitle={updateObjectiveTitle}
-              onUpdateDescription={updateObjectiveDescription}
-              onUpdateColor={updateObjectiveColor}
-              onDelete={deleteObjective}
-              onTaskInputChange={updateTaskInput}
-              onAddTask={addTask}
-              onOpenTask={openTaskDetails}
-              onTaskStatusChange={updateTaskStatus}
-            />
-          ))}
-        </div>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {objectives.map((objective) => (
+              <ObjectiveCard
+                key={objective.id}
+                objective={objective}
+                taskInput={taskInputs[objective.id]}
+                onDragStart={handleObjectiveDragStart}
+                onDragOver={handleDragOver}
+                onDrop={handleObjectiveDrop}
+                onUpdateTitle={updateObjectiveTitle}
+                onUpdateDescription={updateObjectiveDescription}
+                onUpdateColor={updateObjectiveColor}
+                onDelete={deleteObjective}
+                onTaskInputChange={updateTaskInput}
+                onAddTask={addTask}
+                onOpenTask={openTaskDetails}
+                onTaskStatusChange={updateTaskStatus}
+              />
+            ))}
+          </div>
+        </section>
 
         <section className="mt-10 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-5 flex items-center justify-between gap-3">
