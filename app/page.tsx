@@ -5,14 +5,17 @@ import { PreferencesModal } from "@/app/components/dashboard/PreferencesModal";
 import { MeetingSection } from "@/app/components/meeting/MeetingSection";
 import { ObjectiveCard } from "@/app/components/objectives/ObjectiveCard";
 import { TaskDetailsModal } from "@/app/components/objectives/TaskDetailsModal";
+import { ColorSquareSelect } from "@/app/components/ui/ColorSquareSelect";
 import { RichTextEditor, RichTextRenderer } from "@/app/components/ui/RichTextEditor";
 import { useLocalStorage } from "@/app/hooks/useLocalStorage";
 import { useObjectives } from "@/app/hooks/useObjectives";
 import {
   defaultDashboardTitle,
   defaultMeetingSectionOrder,
+  defaultObjectiveColor,
   defaultOrganizationInfo,
   defaultStandardOperatingObjectives,
+  objectiveColorClasses,
 } from "@/app/lib/objectiveOptions";
 import type {
   MeetingItem,
@@ -21,6 +24,7 @@ import type {
   MeetingSectionKey,
   StandardOperatingObjective,
 } from "@/app/types/dashboard";
+import type { ObjectiveColor } from "@/app/types/objective";
 import type { RichTextValue } from "@/app/types/richText";
 
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
@@ -178,6 +182,7 @@ export default function Home() {
   const [standardObjectiveDraft, setStandardObjectiveDraft] = useState({
     title: "",
     description: "" as RichTextValue,
+    color: defaultObjectiveColor as ObjectiveColor,
   });
   const [newAgendaItem, setNewAgendaItem] = useState("");
   const [newTopicItem, setNewTopicItem] = useState("");
@@ -264,6 +269,21 @@ export default function Home() {
       ),
     );
   }, [activeMeeting, meetings, setStrategicTopicItems, strategicTopicItems]);
+
+  useEffect(() => {
+    const needsColorDefaults = standardOperatingObjectives.some(
+      (item) => item.color === undefined,
+    );
+
+    if (!needsColorDefaults) return;
+
+    setStandardOperatingObjectives(
+      standardOperatingObjectives.map((item) => ({
+        ...item,
+        color: item.color ?? defaultObjectiveColor,
+      })),
+    );
+  }, [setStandardOperatingObjectives, standardOperatingObjectives]);
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -460,17 +480,25 @@ export default function Home() {
     setNewCascadeItem("");
   };
 
+  const getStandardObjectiveColor = (item: StandardOperatingObjective) =>
+    item.color ?? defaultObjectiveColor;
+
   const openStandardObjectiveEditor = (item: StandardOperatingObjective) => {
     setSelectedStandardObjectiveId(item.id);
     setStandardObjectiveDraft({
       title: item.title,
       description: item.description,
+      color: getStandardObjectiveColor(item),
     });
   };
 
   const closeStandardObjectiveEditor = () => {
     setSelectedStandardObjectiveId(null);
-    setStandardObjectiveDraft({ title: "", description: "" });
+    setStandardObjectiveDraft({
+      title: "",
+      description: "",
+      color: defaultObjectiveColor,
+    });
   };
 
   const addStandardObjective = () => {
@@ -478,6 +506,7 @@ export default function Home() {
       id: Date.now(),
       title: "New Standard Objective",
       description: "",
+      color: defaultObjectiveColor,
     };
 
     setStandardOperatingObjectives([
@@ -498,6 +527,7 @@ export default function Home() {
               ...item,
               title: nextTitle || "New Standard Objective",
               description: standardObjectiveDraft.description,
+              color: standardObjectiveDraft.color,
             }
           : item,
       ),
@@ -686,7 +716,7 @@ export default function Home() {
                 key={item.id}
                 type="button"
                 onClick={() => openStandardObjectiveEditor(item)}
-                className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 text-left text-lg font-semibold text-slate-900 shadow-sm transition hover:border-blue-200 hover:bg-blue-100/80 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className={`rounded-2xl border border-l-8 border-blue-100 bg-blue-50/70 p-4 text-left text-lg font-semibold text-slate-900 shadow-sm transition hover:border-blue-200 hover:bg-blue-100/80 focus:outline-none focus:ring-2 focus:ring-blue-300 ${objectiveColorClasses[getStandardObjectiveColor(item)]}`}
               >
                 <span className="block truncate">{item.title}</span>
               </button>
@@ -836,23 +866,37 @@ export default function Home() {
             </div>
 
             <div className="space-y-5">
-              <label className="block">
-                <span className="mb-2 block text-lg font-semibold text-slate-900">
-                  Title
-                </span>
-                <input
-                  type="text"
-                  value={standardObjectiveDraft.title}
-                  onChange={(event) =>
-                    setStandardObjectiveDraft((draft) => ({
-                      ...draft,
-                      title: event.target.value,
-                    }))
-                  }
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  placeholder="New Standard Objective"
-                />
-              </label>
+              <div className="flex items-start gap-4">
+                <label className="block flex-1">
+                  <span className="mb-2 block text-lg font-semibold text-slate-900">
+                    Title
+                  </span>
+                  <input
+                    type="text"
+                    value={standardObjectiveDraft.title}
+                    onChange={(event) =>
+                      setStandardObjectiveDraft((draft) => ({
+                        ...draft,
+                        title: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    placeholder="New Standard Objective"
+                  />
+                </label>
+                <div className="pt-9">
+                  <ColorSquareSelect
+                    value={standardObjectiveDraft.color}
+                    onChange={(color) =>
+                      setStandardObjectiveDraft((draft) => ({
+                        ...draft,
+                        color,
+                      }))
+                    }
+                    ariaLabel="Standard operating objective color"
+                  />
+                </div>
+              </div>
 
               <div>
                 <span className="mb-2 block text-lg font-semibold text-slate-900">
