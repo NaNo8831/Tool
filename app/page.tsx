@@ -204,6 +204,8 @@ export default function Home() {
     useState<WorkspaceBackupFeedback | null>(null);
   const [draggingMeetingSection, setDraggingMeetingSection] =
     useState<MeetingSectionKey | null>(null);
+  const [draggingStandardObjectiveId, setDraggingStandardObjectiveId] =
+    useState<number | null>(null);
   const organizationInfoWithDefaults = {
     ...defaultOrganizationInfo,
     ...organizationInfo,
@@ -596,6 +598,74 @@ export default function Home() {
     );
   };
 
+  const handleStandardObjectiveDragStart = (
+    event: DragEvent<HTMLDivElement>,
+    itemId: number,
+  ) => {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(
+      "application/x-standard-operating-objective-id",
+      String(itemId),
+    );
+    setDraggingStandardObjectiveId(itemId);
+  };
+
+  const handleStandardObjectiveDragOver = (
+    event: DragEvent<HTMLDivElement>,
+  ) => {
+    if (
+      !event.dataTransfer.types.includes(
+        "application/x-standard-operating-objective-id",
+      )
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "move";
+  };
+
+  const handleStandardObjectiveDrop = (
+    event: DragEvent<HTMLDivElement>,
+    targetItemId: number,
+  ) => {
+    const draggedItemIdValue = event.dataTransfer.getData(
+      "application/x-standard-operating-objective-id",
+    );
+    if (!draggedItemIdValue) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const draggedItemId = Number(draggedItemIdValue);
+    if (!Number.isFinite(draggedItemId) || draggedItemId === targetItemId) {
+      setDraggingStandardObjectiveId(null);
+      return;
+    }
+
+    const draggedIndex = standardOperatingObjectives.findIndex(
+      (item) => item.id === draggedItemId,
+    );
+    const targetIndex = standardOperatingObjectives.findIndex(
+      (item) => item.id === targetItemId,
+    );
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggingStandardObjectiveId(null);
+      return;
+    }
+
+    const reordered = [...standardOperatingObjectives];
+    const [draggedItem] = reordered.splice(draggedIndex, 1);
+    reordered.splice(targetIndex, 0, draggedItem);
+    setStandardOperatingObjectives(reordered);
+    setDraggingStandardObjectiveId(null);
+  };
+
+  const handleStandardObjectiveDragEnd = () => {
+    setDraggingStandardObjectiveId(null);
+  };
+
   const meetingSections: Record<MeetingSectionKey, MeetingSectionConfig> = {
     agenda: {
       id: "agenda",
@@ -889,12 +959,26 @@ export default function Home() {
             {standardOperatingObjectives.map((item) => (
               <div
                 key={item.id}
-                className={`flex min-w-0 items-center gap-3 rounded-2xl border border-l-8 border-blue-100 bg-blue-50/70 p-3 text-slate-900 shadow-sm transition hover:border-blue-200 hover:bg-blue-100/80 ${objectiveColorClasses[getStandardObjectiveColor(item)]}`}
+                draggable
+                onDragStart={(event) =>
+                  handleStandardObjectiveDragStart(event, item.id)
+                }
+                onDragOver={handleStandardObjectiveDragOver}
+                onDrop={(event) => handleStandardObjectiveDrop(event, item.id)}
+                onDragEnd={handleStandardObjectiveDragEnd}
+                className={`flex min-w-0 cursor-grab items-center gap-3 rounded-2xl border border-l-8 border-blue-100 bg-blue-50/70 p-3 text-slate-900 shadow-sm transition hover:border-blue-200 hover:bg-blue-100/80 active:cursor-grabbing ${objectiveColorClasses[getStandardObjectiveColor(item)]} ${draggingStandardObjectiveId === item.id ? "opacity-60 ring-2 ring-blue-200" : ""}`}
+                aria-label={`Drag ${item.title || "standard operating objective"} to reorder standard operating objectives`}
               >
+                <span
+                  className="shrink-0 select-none text-lg leading-none text-slate-400"
+                  aria-hidden="true"
+                >
+                  ⋮⋮
+                </span>
                 <button
                   type="button"
                   onClick={() => openStandardObjectiveEditor(item)}
-                  className="min-w-0 flex-1 text-left text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-300 rounded-lg"
+                  className="min-w-0 flex-1 rounded-lg text-left text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-300"
                 >
                   <span className="block truncate">{item.title}</span>
                 </button>
