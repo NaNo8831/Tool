@@ -62,7 +62,7 @@ export function ObjectiveCard({
       }}
       onDragOver={onDragOver}
       onDrop={() => onDrop(objective.id)}
-      className={`relative rounded-2xl border border-slate-100 border-t-[12px] bg-white p-4 shadow-sm transition hover:shadow-md ${objectiveColorClasses[objective.color]} ${isEditingObjective ? 'cursor-default' : 'cursor-grab'}`}
+      className={`relative rounded-2xl border-t-[12px] bg-white p-4 shadow-sm ring-1 ring-slate-100 transition hover:shadow-md ${objectiveColorClasses[objective.color]} ${isEditingObjective ? 'cursor-default' : 'cursor-grab'}`}
     >
       <div className="mb-4 space-y-3">
         <div
