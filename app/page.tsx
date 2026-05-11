@@ -915,14 +915,26 @@ export default function Home() {
                   Edit Objective
                 </h2>
               </div>
-              <button
-                type="button"
-                onClick={closeStandardObjectiveEditor}
-                className="rounded-full px-3 py-1 text-2xl leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-                aria-label="Close standard operating objective editor"
-              >
-                ×
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                <ColorSquareSelect
+                  value={standardObjectiveDraft.color}
+                  onChange={(color) =>
+                    setStandardObjectiveDraft((draft) => ({
+                      ...draft,
+                      color,
+                    }))
+                  }
+                  ariaLabel="Standard operating objective modal color"
+                />
+                <button
+                  type="button"
+                  onClick={closeStandardObjectiveEditor}
+                  className="rounded-full px-3 py-1 text-2xl leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                  aria-label="Close standard operating objective editor"
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
             <div className="space-y-5">
