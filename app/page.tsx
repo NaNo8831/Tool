@@ -149,34 +149,38 @@ export default function Home() {
     updateTaskInput,
     openTaskDetails,
     closeTaskDetails,
+    hasLoadedObjectives,
   } = useObjectives();
-  const [meetings, setMeetings] = useLocalStorage<MeetingRecord[]>(
+  const [meetings, setMeetings, hasLoadedMeetings] = useLocalStorage<MeetingRecord[]>(
     "leadership-meetings",
     initialMeetings,
   );
-  const [activeMeetingId, setActiveMeetingId] = useLocalStorage<number>(
+  const [activeMeetingId, setActiveMeetingId, hasLoadedActiveMeetingId] = useLocalStorage<number>(
     "leadership-active-meeting-id",
     initialMeetings[0].id,
   );
-  const [dashboardTitle, setDashboardTitle] = useLocalStorage(
+  const [dashboardTitle, setDashboardTitle, hasLoadedDashboardTitle] = useLocalStorage(
     "leadership-dashboard-title",
     defaultDashboardTitle,
   );
-  const [organizationInfo, setOrganizationInfo] = useLocalStorage(
+  const [organizationInfo, setOrganizationInfo, hasLoadedOrganizationInfo] = useLocalStorage(
     "leadership-organization-info",
     defaultOrganizationInfo,
   );
-  const [meetingSectionOrder, setMeetingSectionOrder] = useLocalStorage<
+  const [meetingSectionOrder, setMeetingSectionOrder, hasLoadedMeetingSectionOrder] = useLocalStorage<
     MeetingSectionKey[]
   >("leadership-meeting-section-order", defaultMeetingSectionOrder);
-  const [strategicTopicItems, setStrategicTopicItems] = useLocalStorage<
+  const [strategicTopicItems, setStrategicTopicItems, hasLoadedStrategicTopicItems] = useLocalStorage<
     MeetingItem[]
   >(strategicTopicsStorageKey, []);
-  const [standardOperatingObjectives, setStandardOperatingObjectives] =
-    useLocalStorage<StandardOperatingObjective[]>(
-      "leadership-standard-operating-objectives",
-      defaultStandardOperatingObjectives,
-    );
+  const [
+    standardOperatingObjectives,
+    setStandardOperatingObjectives,
+    hasLoadedStandardOperatingObjectives,
+  ] = useLocalStorage<StandardOperatingObjective[]>(
+    "leadership-standard-operating-objectives",
+    defaultStandardOperatingObjectives,
+  );
   const [selectedStandardObjectiveId, setSelectedStandardObjectiveId] =
     useState<number | null>(null);
   const [standardObjectiveDraft, setStandardObjectiveDraft] = useState({
@@ -219,8 +223,19 @@ export default function Home() {
   });
   const canNavigateToPreviousMeeting = activeMeetingIndex > 0;
   const canNavigateToNextMeeting = activeMeetingIndex < meetings.length - 1;
+  const hasLoadedDashboardStorage =
+    hasLoadedObjectives &&
+    hasLoadedMeetings &&
+    hasLoadedActiveMeetingId &&
+    hasLoadedDashboardTitle &&
+    hasLoadedOrganizationInfo &&
+    hasLoadedMeetingSectionOrder &&
+    hasLoadedStrategicTopicItems &&
+    hasLoadedStandardOperatingObjectives;
 
   useEffect(() => {
+    if (!hasLoadedMeetings) return;
+
     const timeoutId = window.setTimeout(() => {
       if (window.localStorage.getItem("leadership-meetings") !== null) return;
 
@@ -232,9 +247,11 @@ export default function Home() {
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [setActiveMeetingId, setMeetings]);
+  }, [hasLoadedMeetings, setActiveMeetingId, setMeetings]);
 
   useEffect(() => {
+    if (!hasLoadedStrategicTopicItems) return;
+
     const timeoutId = window.setTimeout(() => {
       if (window.localStorage.getItem(strategicTopicsStorageKey) !== null)
         return;
@@ -246,10 +263,10 @@ export default function Home() {
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [setStrategicTopicItems]);
+  }, [hasLoadedStrategicTopicItems, setStrategicTopicItems]);
 
   useEffect(() => {
-    if (strategicTopicItems.length === 0) return;
+    if (!hasLoadedStrategicTopicItems || strategicTopicItems.length === 0) return;
 
     const fallbackMeeting = meetings[0] ?? activeMeeting;
     const needsNormalization = strategicTopicItems.some(
@@ -268,9 +285,17 @@ export default function Home() {
         normalizeStrategicTopic(item, fallbackMeeting, 0),
       ),
     );
-  }, [activeMeeting, meetings, setStrategicTopicItems, strategicTopicItems]);
+  }, [
+    activeMeeting,
+    hasLoadedStrategicTopicItems,
+    meetings,
+    setStrategicTopicItems,
+    strategicTopicItems,
+  ]);
 
   useEffect(() => {
+    if (!hasLoadedStandardOperatingObjectives) return;
+
     const needsColorDefaults = standardOperatingObjectives.some(
       (item) => item.color === undefined,
     );
@@ -283,7 +308,11 @@ export default function Home() {
         color: item.color ?? defaultObjectiveColor,
       })),
     );
-  }, [setStandardOperatingObjectives, standardOperatingObjectives]);
+  }, [
+    hasLoadedStandardOperatingObjectives,
+    setStandardOperatingObjectives,
+    standardOperatingObjectives,
+  ]);
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -547,6 +576,16 @@ export default function Home() {
     closeStandardObjectiveEditor();
   };
 
+  const updateStandardObjectiveColor = (
+    itemId: number,
+    color: ObjectiveColor,
+  ) => {
+    setStandardOperatingObjectives(
+      standardOperatingObjectives.map((item) =>
+        item.id === itemId ? { ...item, color } : item,
+      ),
+    );
+  };
 
   const meetingSections: Record<MeetingSectionKey, MeetingSectionConfig> = {
     agenda: {
@@ -634,6 +673,18 @@ export default function Home() {
     return <p className="text-slate-700 whitespace-pre-line">{value}</p>;
   };
 
+  if (!hasLoadedDashboardStorage) {
+    return (
+      <main className="min-h-screen bg-slate-100 p-8">
+        <div className="mx-auto flex min-h-[60vh] max-w-7xl items-center justify-center">
+          <div className="rounded-3xl border border-slate-200 bg-white px-6 py-5 text-center text-slate-600 shadow-sm">
+            Loading saved dashboard…
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-slate-100 p-8">
       <div className="max-w-7xl mx-auto">
@@ -712,14 +763,23 @@ export default function Home() {
 
           <div className="grid gap-3 md:grid-cols-4">
             {standardOperatingObjectives.map((item) => (
-              <button
+              <div
                 key={item.id}
-                type="button"
-                onClick={() => openStandardObjectiveEditor(item)}
-                className={`rounded-2xl border border-l-8 border-blue-100 bg-blue-50/70 p-4 text-left text-lg font-semibold text-slate-900 shadow-sm transition hover:border-blue-200 hover:bg-blue-100/80 focus:outline-none focus:ring-2 focus:ring-blue-300 ${objectiveColorClasses[getStandardObjectiveColor(item)]}`}
+                className={`flex items-center gap-3 rounded-2xl border border-l-8 border-blue-100 bg-blue-50/70 p-3 text-slate-900 shadow-sm transition hover:border-blue-200 hover:bg-blue-100/80 ${objectiveColorClasses[getStandardObjectiveColor(item)]}`}
               >
-                <span className="block truncate">{item.title}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => openStandardObjectiveEditor(item)}
+                  className="min-w-0 flex-1 text-left text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-300 rounded-lg"
+                >
+                  <span className="block truncate">{item.title}</span>
+                </button>
+                <ColorSquareSelect
+                  value={getStandardObjectiveColor(item)}
+                  onChange={(color) => updateStandardObjectiveColor(item.id, color)}
+                  ariaLabel="Standard operating objective color"
+                />
+              </div>
             ))}
           </div>
         </section>
@@ -866,37 +926,23 @@ export default function Home() {
             </div>
 
             <div className="space-y-5">
-              <div className="flex items-start gap-4">
-                <label className="block flex-1">
-                  <span className="mb-2 block text-lg font-semibold text-slate-900">
-                    Title
-                  </span>
-                  <input
-                    type="text"
-                    value={standardObjectiveDraft.title}
-                    onChange={(event) =>
-                      setStandardObjectiveDraft((draft) => ({
-                        ...draft,
-                        title: event.target.value,
-                      }))
-                    }
-                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                    placeholder="New Standard Objective"
-                  />
-                </label>
-                <div className="pt-9">
-                  <ColorSquareSelect
-                    value={standardObjectiveDraft.color}
-                    onChange={(color) =>
-                      setStandardObjectiveDraft((draft) => ({
-                        ...draft,
-                        color,
-                      }))
-                    }
-                    ariaLabel="Standard operating objective color"
-                  />
-                </div>
-              </div>
+              <label className="block">
+                <span className="mb-2 block text-lg font-semibold text-slate-900">
+                  Title
+                </span>
+                <input
+                  type="text"
+                  value={standardObjectiveDraft.title}
+                  onChange={(event) =>
+                    setStandardObjectiveDraft((draft) => ({
+                      ...draft,
+                      title: event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  placeholder="New Standard Objective"
+                />
+              </label>
 
               <div>
                 <span className="mb-2 block text-lg font-semibold text-slate-900">

@@ -123,7 +123,7 @@ const normalizeObjectives = (storedObjectives: Objective[]): { objectives: Objec
 };
 
 export const useObjectives = () => {
-  const [objectives, setObjectives] = useLocalStorage<Objective[]>('leadership-objectives', objectivesData);
+  const [objectives, setObjectives, hasLoadedObjectives] = useLocalStorage<Objective[]>('leadership-objectives', objectivesData);
   const [taskInputs, setTaskInputs] = useState<Record<number, TaskInput>>({});
   const [selectedTask, setSelectedTask] = useState<{ objectiveId: number; taskId: number } | null>(null);
   const [draggingObjectiveId, setDraggingObjectiveId] = useState<number | null>(null);
@@ -138,9 +138,9 @@ export const useObjectives = () => {
     : null;
 
   useEffect(() => {
-    if (!normalizedObjectivesResult.changed) return;
+    if (!hasLoadedObjectives || !normalizedObjectivesResult.changed) return;
     setObjectives(normalizedObjectivesResult.objectives);
-  }, [normalizedObjectivesResult, setObjectives]);
+  }, [hasLoadedObjectives, normalizedObjectivesResult, setObjectives]);
 
   const updateObjectiveTitle = (id: number, newTitle: string) => {
     setObjectives(objectives.map((obj) =>
@@ -310,6 +310,7 @@ export const useObjectives = () => {
     updateTaskStatus,
     updateTaskInput,
     openTaskDetails,
-    closeTaskDetails
+    closeTaskDetails,
+    hasLoadedObjectives
   };
 };
