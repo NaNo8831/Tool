@@ -41,35 +41,57 @@ export function ObjectiveCard({
   onOpenTask,
   onTaskStatusChange
 }: ObjectiveCardProps) {
-  const [isEditingRichText, setIsEditingRichText] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const isEditingObjective = isEditingTitle || isEditingDescription;
+
+  const preventObjectiveDragFromEditRegion = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
 
   return (
     <div
-      draggable={!isEditingRichText}
-      onDragStart={() => {
-        if (isEditingRichText) return;
+      draggable={!isEditingObjective}
+      onDragStart={(event) => {
+        if (isEditingObjective) {
+          event.preventDefault();
+          return;
+        }
         onDragStart(objective.id);
       }}
       onDragOver={onDragOver}
       onDrop={() => onDrop(objective.id)}
-      className={`relative rounded-3xl p-6 shadow bg-white/80 backdrop-blur-sm border-t-[18px] ${objectiveColorClasses[objective.color]} ${isEditingRichText ? 'cursor-default' : 'cursor-grab'} transition hover:shadow-xl`}
+      className={`relative rounded-3xl p-6 shadow bg-white/80 backdrop-blur-sm border-t-[18px] ${objectiveColorClasses[objective.color]} ${isEditingObjective ? 'cursor-default' : 'cursor-grab'} transition hover:shadow-xl`}
     >
-      <div className="mb-5 pr-24">
-        <EditableField
-          value={objective.title}
-          onSave={(value) => onUpdateTitle(objective.id, value)}
-          placeholder="Objective title"
-          className="text-2xl font-semibold text-slate-900 mb-3"
-        />
-        <RichTextEditor
-          value={objective.description}
-          onChange={(value) => onUpdateDescription(objective.id, value)}
-          placeholder="Objective description"
-          className="text-slate-700"
-          minHeightClassName="min-h-[120px]"
-          ariaLabel="Objective description"
-          onEditingChange={setIsEditingRichText}
-        />
+      <div className="mb-5 space-y-4">
+        <div
+          className="pr-24"
+          onMouseDown={(event) => event.stopPropagation()}
+          onDragStart={preventObjectiveDragFromEditRegion}
+        >
+          <EditableField
+            value={objective.title}
+            onSave={(value) => onUpdateTitle(objective.id, value)}
+            placeholder="Objective title"
+            className="text-2xl font-semibold text-slate-900"
+            onEditingChange={setIsEditingTitle}
+          />
+        </div>
+        <div
+          onMouseDown={(event) => event.stopPropagation()}
+          onDragStart={preventObjectiveDragFromEditRegion}
+        >
+          <RichTextEditor
+            value={objective.description}
+            onChange={(value) => onUpdateDescription(objective.id, value)}
+            placeholder="Objective description"
+            className="text-slate-700"
+            minHeightClassName="min-h-[120px]"
+            ariaLabel="Objective description"
+            onEditingChange={setIsEditingDescription}
+          />
+        </div>
       </div>
 
       <div className="absolute right-5 top-5 flex items-center gap-2">

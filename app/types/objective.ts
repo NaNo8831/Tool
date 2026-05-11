@@ -31,7 +31,7 @@ export interface Task {
   comments: TaskComment[];
   activityHistory: TaskActivity[];
   assignedTo: string;
-  status: 'planning' | 'in-progress' | 'waiting' | 'completed';
+  status: 'planning' | 'in-progress' | 'completed';
 }
 
 export interface Objective {

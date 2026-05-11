@@ -40,7 +40,7 @@ export const defaultStandardOperatingObjectives: StandardOperatingObjective[] = 
   }
 ];
 
-export const taskStatusOptions: TaskStatus[] = ['planning', 'in-progress', 'waiting', 'completed'];
+export const taskStatusOptions: TaskStatus[] = ['planning', 'in-progress', 'completed'];
 
 export const objectiveColorOptions: Array<{
   value: ObjectiveColor;

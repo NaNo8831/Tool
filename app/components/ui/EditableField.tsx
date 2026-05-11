@@ -10,6 +10,7 @@ interface EditableFieldProps {
   className?: string;
   editorClassName?: string;
   actionClassName?: string;
+  onEditingChange?: (isEditing: boolean) => void;
 }
 
 export function EditableField({
@@ -19,19 +20,27 @@ export function EditableField({
   multiline = false,
   className = '',
   editorClassName = '',
-  actionClassName = ''
+  actionClassName = '',
+  onEditingChange
 }: EditableFieldProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
 
+  const startEditing = () => {
+    setIsEditing(true);
+    onEditingChange?.(true);
+  };
+
   const handleSave = () => {
     onSave(editValue);
     setIsEditing(false);
+    onEditingChange?.(false);
   };
 
   const handleCancel = () => {
     setEditValue(value);
     setIsEditing(false);
+    onEditingChange?.(false);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -68,12 +77,14 @@ export function EditableField({
         )}
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={handleSave}
             className={`px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 ${actionClassName}`}
           >
             Save
           </button>
           <button
+            type="button"
             onClick={handleCancel}
             className={`px-3 py-1 bg-slate-500 text-white rounded text-sm hover:bg-slate-600 ${actionClassName}`}
           >
@@ -86,7 +97,7 @@ export function EditableField({
 
   return (
     <div
-      onClick={() => setIsEditing(true)}
+      onClick={startEditing}
       className={`cursor-pointer hover:bg-yellow-50 p-2 rounded transition-colors ${className}`}
     >
       {value || <span className="text-gray-400 italic">{placeholder}</span>}
