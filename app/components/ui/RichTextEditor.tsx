@@ -1,11 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import type {
   RichTextBlock,
   RichTextColumns,
   RichTextDocument,
   RichTextInline,
+  RichTextListItem,
   RichTextValue,
 } from "@/app/types/richText";
 
@@ -92,12 +101,31 @@ const normalizeBlocks = (blocks: unknown): RichTextBlock[] => {
 
     if (candidate.type === "bulletList" || candidate.type === "numberedList") {
       const items = Array.isArray(candidate.items)
-        ? candidate.items.map((item) => normalizeInlines(item))
-        : [[{ text: "" }]];
+        ? candidate.items.map((item) => {
+            if (Array.isArray(item)) {
+              return { children: normalizeInlines(item), level: 0 };
+            }
+
+            if (typeof item !== "object" || item === null) {
+              return { children: [{ text: "" }], level: 0 };
+            }
+
+            const listItem = item as Partial<RichTextListItem>;
+            const rawLevel = Number(listItem.level ?? 0);
+
+            return {
+              children: normalizeInlines(listItem.children),
+              level: Number.isFinite(rawLevel)
+                ? Math.max(0, Math.floor(rawLevel))
+                : 0,
+            };
+          })
+        : [{ children: [{ text: "" }], level: 0 }];
 
       return {
         type: candidate.type,
-        items: items.length > 0 ? items : [[{ text: "" }]],
+        items:
+          items.length > 0 ? items : [{ children: [{ text: "" }], level: 0 }],
       };
     }
 
@@ -185,7 +213,7 @@ const getBlocksPlainText = (blocks: RichTextBlock[]) =>
       }
 
       return block.items
-        .map((item) => item.map((child) => child.text).join(""))
+        .map((item) => item.children.map((child) => child.text).join(""))
         .join("\n");
     })
     .join("\n");
@@ -229,6 +257,33 @@ const readBlockInlines = (node: Node): RichTextInline[] =>
     })),
   );
 
+const getDirectListItemInlines = (listItem: HTMLElement): RichTextInline[] => {
+  const clone = listItem.cloneNode(true) as HTMLElement;
+  clone
+    .querySelectorAll("ul, ol")
+    .forEach((nestedList) => nestedList.remove());
+  return readBlockInlines(clone);
+};
+
+const readListItems = (list: HTMLElement, level = 0): RichTextListItem[] =>
+  Array.from(list.children)
+    .filter((child): child is HTMLElement =>
+      child instanceof HTMLElement && child.tagName.toLowerCase() === "li",
+    )
+    .flatMap((listItem) => {
+      const nestedItems = Array.from(listItem.children)
+        .filter((child): child is HTMLElement =>
+          child instanceof HTMLElement &&
+            ["ul", "ol"].includes(child.tagName.toLowerCase()),
+        )
+        .flatMap((nestedList) => readListItems(nestedList, level + 1));
+
+      return [
+        { children: getDirectListItemInlines(listItem), level },
+        ...nestedItems,
+      ];
+    });
+
 const serializeColumnContent = (editor: HTMLElement): RichTextBlock[] => {
   const blocks: RichTextBlock[] = [];
 
@@ -250,13 +305,12 @@ const serializeColumnContent = (editor: HTMLElement): RichTextBlock[] => {
 
     const tagName = node.tagName.toLowerCase();
     if (["ul", "ol"].includes(tagName)) {
-      const items = Array.from(node.children)
-        .filter((child) => child.tagName.toLowerCase() === "li")
-        .map((child) => readBlockInlines(child));
+      const items = readListItems(node);
 
       blocks.push({
         type: tagName === "ul" ? "bulletList" : "numberedList",
-        items: items.length > 0 ? items : [[{ text: "" }]],
+        items:
+          items.length > 0 ? items : [{ children: [{ text: "" }], level: 0 }],
       });
       return;
     }
@@ -267,13 +321,12 @@ const serializeColumnContent = (editor: HTMLElement): RichTextBlock[] => {
 
     if (listChild instanceof HTMLElement) {
       const listTagName = listChild.tagName.toLowerCase();
-      const items = Array.from(listChild.children)
-        .filter((child) => child.tagName.toLowerCase() === "li")
-        .map((child) => readBlockInlines(child));
+      const items = readListItems(listChild);
 
       blocks.push({
         type: listTagName === "ul" ? "bulletList" : "numberedList",
-        items: items.length > 0 ? items : [[{ text: "" }]],
+        items:
+          items.length > 0 ? items : [{ children: [{ text: "" }], level: 0 }],
       });
       return;
     }
@@ -319,16 +372,52 @@ const appendInlines = (element: HTMLElement, inlines: RichTextInline[]) => {
   element.append(...inlineNodes);
 };
 
+const appendListItems = (
+  list: HTMLOListElement | HTMLUListElement,
+  items: RichTextListItem[],
+) => {
+  const listByLevel = new Map<number, HTMLOListElement | HTMLUListElement>([
+    [0, list],
+  ]);
+  const lastListItemByLevel = new Map<number, HTMLLIElement>();
+
+  items.forEach((item) => {
+    const level = Math.max(0, item.level ?? 0);
+    let parentList = listByLevel.get(level);
+
+    if (!parentList) {
+      const parentItem = lastListItemByLevel.get(level - 1);
+      if (!parentItem) {
+        parentList = list;
+      } else {
+        parentList = document.createElement(list.tagName.toLowerCase()) as
+          | HTMLOListElement
+          | HTMLUListElement;
+        parentItem.append(parentList);
+        listByLevel.set(level, parentList);
+      }
+    }
+
+    const listItem = document.createElement("li");
+    appendInlines(listItem, item.children);
+    parentList.append(listItem);
+    lastListItemByLevel.set(level, listItem);
+
+    Array.from(listByLevel.keys())
+      .filter((storedLevel) => storedLevel > level)
+      .forEach((storedLevel) => {
+        listByLevel.delete(storedLevel);
+        lastListItemByLevel.delete(storedLevel);
+      });
+  });
+};
+
 const createBlockNode = (block: RichTextBlock): HTMLElement => {
   if (block.type !== "paragraph") {
     const list = document.createElement(
       block.type === "bulletList" ? "ul" : "ol",
     );
-    block.items.forEach((item) => {
-      const listItem = document.createElement("li");
-      appendInlines(listItem, item);
-      list.append(listItem);
-    });
+    appendListItems(list, block.items);
     return list;
   }
 
@@ -349,25 +438,54 @@ const renderInline = (inline: RichTextInline, index: number) => {
   return <span key={index}>{content}</span>;
 };
 
+const renderListItems = (
+  items: RichTextListItem[],
+  listType: "bulletList" | "numberedList",
+  level = 0,
+  startIndex = 0,
+): { nodes: ReactNode[]; nextIndex: number } => {
+  const nodes: ReactNode[] = [];
+  let index = startIndex;
+
+  while (index < items.length) {
+    const item = items[index];
+    const itemLevel = item.level ?? 0;
+
+    if (itemLevel < level) break;
+    if (itemLevel > level) {
+      index += 1;
+      continue;
+    }
+
+    index += 1;
+    const nested = renderListItems(items, listType, level + 1, index);
+    index = nested.nextIndex;
+    const NestedList = listType === "bulletList" ? "ul" : "ol";
+
+    nodes.push(
+      <li key={`${level}-${index}-${nodes.length}`}>
+        {item.children.map(renderInline)}
+        {nested.nodes.length > 0 ? (
+          <NestedList>{nested.nodes}</NestedList>
+        ) : null}
+      </li>,
+    );
+  }
+
+  return { nodes, nextIndex: index };
+};
+
 const renderBlocks = (blocks: RichTextBlock[]) =>
   blocks.map((block, blockIndex) => {
     if (block.type === "bulletList") {
       return (
-        <ul key={blockIndex}>
-          {block.items.map((item, itemIndex) => (
-            <li key={itemIndex}>{item.map(renderInline)}</li>
-          ))}
-        </ul>
+        <ul key={blockIndex}>{renderListItems(block.items, block.type).nodes}</ul>
       );
     }
 
     if (block.type === "numberedList") {
       return (
-        <ol key={blockIndex}>
-          {block.items.map((item, itemIndex) => (
-            <li key={itemIndex}>{item.map(renderInline)}</li>
-          ))}
-        </ol>
+        <ol key={blockIndex}>{renderListItems(block.items, block.type).nodes}</ol>
       );
     }
 
@@ -401,6 +519,17 @@ const queryCommandState = (command: string) => {
   } catch {
     return false;
   }
+};
+
+const isSelectionInsideListItem = () => {
+  const selection = document.getSelection();
+  const anchorNode = selection?.anchorNode;
+  if (!anchorNode) return false;
+
+  const element =
+    anchorNode instanceof HTMLElement ? anchorNode : anchorNode.parentElement;
+
+  return Boolean(element?.closest("li"));
 };
 
 export function RichTextRenderer({
@@ -556,6 +685,15 @@ export function RichTextEditor({
     updateFormattingState();
   };
 
+  const handleEditorKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab" || !isSelectionInsideListItem()) return;
+
+    event.preventDefault();
+    document.execCommand(event.shiftKey ? "outdent" : "indent");
+    publishCurrentDraft();
+    updateFormattingState();
+  };
+
   const updateColumns = (columns: RichTextColumns) => {
     const currentDocument = readCurrentDraft(draftDocument.columns);
     const currentColumnBlocks = currentDocument.columnBlocks ?? [
@@ -625,20 +763,30 @@ export function RichTextEditor({
   }
 
   return (
-    <div
-      className={`rounded-2xl border border-slate-300 bg-white shadow-sm focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 ${className}`}
-      onMouseDown={(event) => event.stopPropagation()}
-      onDragStart={(event) => event.stopPropagation()}
-    >
-      <div className="relative">
-        {!hasDraftContent ? (
-          <div className="pointer-events-none absolute left-4 top-3 text-slate-400">
-            {placeholder}
-          </div>
-        ) : null}
+    <>
+      {!isAlwaysEditing ? (
         <div
-          className={`rich-text-column-grid rich-text-column-grid-${draftDocument.columns}`}
-        >
+          className="fixed inset-0 z-[60] bg-slate-950/20"
+          aria-hidden="true"
+        />
+      ) : null}
+      <div
+        className={`relative z-[70] rounded-2xl border border-slate-300 bg-white shadow-sm focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 ${className}`}
+        role={!isAlwaysEditing ? "dialog" : undefined}
+        aria-modal={!isAlwaysEditing ? "true" : undefined}
+        aria-label={!isAlwaysEditing ? `Editing ${ariaLabel}` : undefined}
+        onMouseDown={(event) => event.stopPropagation()}
+        onDragStart={(event) => event.stopPropagation()}
+      >
+        <div className="relative">
+          {!hasDraftContent ? (
+            <div className="pointer-events-none absolute left-4 top-3 text-slate-400">
+              {placeholder}
+            </div>
+          ) : null}
+          <div
+            className={`rich-text-column-grid rich-text-column-grid-${draftDocument.columns}`}
+          >
           {Array.from({ length: draftDocument.columns }, (_, index) => (
             <div
               key={index}
@@ -659,16 +807,17 @@ export function RichTextEditor({
                 activeEditorIndexRef.current = index;
                 updateFormattingState();
               }}
+              onKeyDown={handleEditorKeyDown}
               onKeyUp={updateFormattingState}
               onMouseUp={updateFormattingState}
               onInput={refreshDraftContentState}
               className={`rich-text-editor rich-text-content rich-text-column-pane ${minHeightClassName} px-4 py-3 text-slate-900 outline-none ${editorClassName}`}
             />
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
 
-      <div className="flex flex-wrap items-center gap-1 border-t border-slate-200 px-3 py-2 text-sm text-slate-700">
+        <div className="flex flex-wrap items-center gap-1 border-t border-slate-200 px-3 py-2 text-sm text-slate-700">
         <button
           type="button"
           onMouseDown={(event) => event.preventDefault()}
@@ -741,8 +890,8 @@ export function RichTextEditor({
         </div>
       </div>
 
-      {!isAlwaysEditing ? (
-        <div className="flex justify-end gap-2 border-t border-slate-200 px-3 py-2">
+        {!isAlwaysEditing ? (
+          <div className="flex justify-end gap-2 border-t border-slate-200 px-3 py-2">
           <button
             type="button"
             onClick={saveEditing}
@@ -757,8 +906,9 @@ export function RichTextEditor({
           >
             Cancel
           </button>
-        </div>
-      ) : null}
-    </div>
+          </div>
+        ) : null}
+      </div>
+    </>
   );
 }

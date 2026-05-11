@@ -12,9 +12,14 @@ export interface RichTextParagraphBlock {
   children: RichTextInline[];
 }
 
+export interface RichTextListItem {
+  children: RichTextInline[];
+  level?: number;
+}
+
 export interface RichTextListBlock {
   type: 'bulletList' | 'numberedList';
-  items: RichTextInline[][];
+  items: RichTextListItem[];
 }
 
 export type RichTextBlock = RichTextParagraphBlock | RichTextListBlock;

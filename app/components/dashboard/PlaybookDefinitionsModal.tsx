@@ -33,10 +33,18 @@ export function PlaybookDefinitionsModal({
   const actionClasses = 'px-5 py-2 text-lg';
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
-      <div className="bg-white rounded-3xl p-8 md:p-10 max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="playbook-definitions-title"
+    >
+      <div
+        className="bg-white rounded-3xl p-8 md:p-10 max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <div className="mb-8 space-y-3">
-          <h2 className="text-4xl md:text-5xl font-bold text-slate-950">Playbook Definitions</h2>
+          <h2 id="playbook-definitions-title" className="text-4xl md:text-5xl font-bold text-slate-950">Playbook Definitions</h2>
           <p className="text-xl text-slate-600">
             Name your team or meeting here, then define the shared playbook language for the dashboard.
           </p>
@@ -63,6 +71,7 @@ export function PlaybookDefinitionsModal({
               value={organizationInfo.whyExist}
               onSave={(value) => handleSave('whyExist', value)}
               placeholder="Enter your mission..."
+              ariaLabel="Why do we exist?"
               multiline
               className="bg-white/80 p-5 rounded-2xl text-2xl leading-relaxed text-slate-900 min-h-28"
               editorClassName="text-2xl leading-relaxed min-h-[160px]"
@@ -117,6 +126,7 @@ export function PlaybookDefinitionsModal({
               value={organizationInfo.rallyCry}
               onSave={(value) => handleSave('rallyCry', value)}
               placeholder="Top Priority"
+              ariaLabel="Top priority"
               multiline
               className="bg-white/80 p-5 rounded-2xl text-3xl font-bold leading-snug text-slate-950 min-h-24"
               editorClassName="text-3xl font-bold leading-snug min-h-[140px]"

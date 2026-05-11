@@ -74,6 +74,7 @@ export function ObjectiveCard({
             value={objective.title}
             onSave={(value) => onUpdateTitle(objective.id, value)}
             placeholder="Objective title"
+            ariaLabel="Objective title"
             className="text-xl font-semibold text-slate-900"
             onEditingChange={setIsEditingTitle}
           />
