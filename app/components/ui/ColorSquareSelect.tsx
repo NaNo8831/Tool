@@ -52,7 +52,7 @@ export function ColorSquareSelect({ value, onChange, ariaLabel }: ColorSquareSel
         aria-expanded={isOpen}
       >
         <span
-          className={`h-4 w-4 rounded-sm border border-slate-200 ${selectedOption.swatchClass}`}
+          className={`h-6 w-6 rounded-sm border border-slate-200 ${selectedOption.swatchClass}`}
           aria-hidden="true"
         />
       </button>
@@ -77,10 +77,10 @@ export function ColorSquareSelect({ value, onChange, ariaLabel }: ColorSquareSel
                   onChange(option.value);
                   setIsOpen(false);
                 }}
-                className={`flex h-8 w-8 items-center justify-center rounded-md border bg-white transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-300 ${isSelected ? 'border-slate-300 ring-[0.25px] ring-slate-200' : 'border-slate-200'}`}
+                className={`flex h-8 w-8 items-center justify-center rounded-md border bg-white transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-300 ${isSelected ? 'border-slate-400 ring-[0.5px] ring-slate-300' : 'border-slate-200'}`}
               >
                 <span
-                  className={`h-4 w-4 rounded-sm ${option.swatchClass}`}
+                  className={`h-6 w-6 rounded-sm ${option.swatchClass}`}
                   aria-hidden="true"
                 />
               </button>
