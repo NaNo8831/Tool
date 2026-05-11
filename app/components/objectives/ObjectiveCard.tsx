@@ -62,9 +62,9 @@ export function ObjectiveCard({
       }}
       onDragOver={onDragOver}
       onDrop={() => onDrop(objective.id)}
-      className={`relative rounded-3xl p-6 shadow bg-white/80 backdrop-blur-sm border-t-[18px] ${objectiveColorClasses[objective.color]} ${isEditingObjective ? 'cursor-default' : 'cursor-grab'} transition hover:shadow-xl`}
+      className={`relative rounded-2xl border border-slate-100 border-t-[12px] bg-white p-4 shadow-sm transition hover:shadow-md ${objectiveColorClasses[objective.color]} ${isEditingObjective ? 'cursor-default' : 'cursor-grab'}`}
     >
-      <div className="mb-5 space-y-4">
+      <div className="mb-4 space-y-3">
         <div
           className="pr-24"
           onMouseDown={(event) => event.stopPropagation()}
@@ -74,7 +74,7 @@ export function ObjectiveCard({
             value={objective.title}
             onSave={(value) => onUpdateTitle(objective.id, value)}
             placeholder="Objective title"
-            className="text-2xl font-semibold text-slate-900"
+            className="text-xl font-semibold text-slate-900"
             onEditingChange={setIsEditingTitle}
           />
         </div>
@@ -87,14 +87,14 @@ export function ObjectiveCard({
             onChange={(value) => onUpdateDescription(objective.id, value)}
             placeholder="Objective description"
             className="text-slate-700"
-            minHeightClassName="min-h-[120px]"
+            minHeightClassName="min-h-[96px]"
             ariaLabel="Objective description"
             onEditingChange={setIsEditingDescription}
           />
         </div>
       </div>
 
-      <div className="absolute right-5 top-5 flex items-center gap-2">
+      <div className="absolute right-4 top-4 flex items-center gap-2">
         <ColorSquareSelect
           value={objective.color}
           onChange={(color) => onUpdateColor(objective.id, color)}
@@ -110,7 +110,7 @@ export function ObjectiveCard({
         </button>
       </div>
 
-      <div className="mb-6 flex justify-end text-sm text-slate-500">
+      <div className="mb-4 flex justify-end text-sm text-slate-500">
         Drag the section to reorder
       </div>
 
