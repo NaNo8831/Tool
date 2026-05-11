@@ -17,6 +17,13 @@ import {
   defaultStandardOperatingObjectives,
   objectiveColorClasses,
 } from "@/app/lib/objectiveOptions";
+import {
+  collectWorkspaceStorage,
+  createWorkspaceBackup,
+  restoreWorkspaceBackup,
+  validateWorkspaceBackup,
+  type WorkspaceBackupFeedback,
+} from "@/app/lib/workspaceBackup";
 import type {
   MeetingItem,
   MeetingRecord,
@@ -193,6 +200,8 @@ export default function Home() {
   const [newDecisionItem, setNewDecisionItem] = useState("");
   const [newCascadeItem, setNewCascadeItem] = useState("");
   const [showPreferences, setShowPreferences] = useState(false);
+  const [backupFeedback, setBackupFeedback] =
+    useState<WorkspaceBackupFeedback | null>(null);
   const [draggingMeetingSection, setDraggingMeetingSection] =
     useState<MeetingSectionKey | null>(null);
   const organizationInfoWithDefaults = {
@@ -650,6 +659,83 @@ export default function Home() {
     },
   };
 
+  const getCurrentWorkspaceStorage = () =>
+    collectWorkspaceStorage({
+      "leadership-objectives": objectives,
+      "leadership-meetings": meetings,
+      "leadership-active-meeting-id": activeMeeting.id,
+      "leadership-dashboard-title": dashboardTitle,
+      "leadership-organization-info": organizationInfo,
+      "leadership-meeting-section-order": meetingSectionOrder,
+      [strategicTopicsStorageKey]: strategicTopicItems,
+      "leadership-standard-operating-objectives": standardOperatingObjectives,
+    });
+
+  const handleExportWorkspaceBackup = () => {
+    try {
+      const backup = createWorkspaceBackup(getCurrentWorkspaceStorage());
+      const backupJson = JSON.stringify(backup, null, 2);
+      const blob = new Blob([backupJson], { type: "application/json" });
+      const downloadUrl = URL.createObjectURL(blob);
+      const downloadLink = document.createElement("a");
+      const dateStamp = new Date().toISOString().slice(0, 10);
+
+      downloadLink.href = downloadUrl;
+      downloadLink.download = `meeting-tool-workspace-backup-${dateStamp}.json`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      URL.revokeObjectURL(downloadUrl);
+
+      setBackupFeedback({
+        type: "success",
+        message: "Workspace backup exported successfully.",
+      });
+    } catch (error) {
+      setBackupFeedback({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to export workspace backup.",
+      });
+    }
+  };
+
+  const handleImportWorkspaceBackup = async (file: File) => {
+    try {
+      const fileText = await file.text();
+      const parsedBackup = JSON.parse(fileText) as unknown;
+      const backup = validateWorkspaceBackup(parsedBackup);
+      const shouldReplace = window.confirm(
+        "Importing this backup will replace the current Meeting Tool data stored in this browser. Continue?",
+      );
+
+      if (!shouldReplace) {
+        setBackupFeedback({
+          type: "error",
+          message: "Import canceled. Current workspace data was not changed.",
+        });
+        return;
+      }
+
+      restoreWorkspaceBackup(backup);
+      setBackupFeedback({
+        type: "success",
+        message: "Workspace backup imported successfully. Reloading…",
+      });
+      window.setTimeout(() => window.location.reload(), 500);
+    } catch (error) {
+      setBackupFeedback({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to import workspace backup.",
+      });
+    }
+  };
+
   const renderMissionValue = (value: RichTextValue) => {
     if (typeof value !== "string") {
       return <RichTextRenderer value={value} className="text-slate-700" />;
@@ -1029,6 +1115,9 @@ export default function Home() {
         onSave={setOrganizationInfo}
         dashboardTitle={dashboardTitle}
         onDashboardTitleChange={setDashboardTitle}
+        onExportWorkspaceBackup={handleExportWorkspaceBackup}
+        onImportWorkspaceBackup={handleImportWorkspaceBackup}
+        backupFeedback={backupFeedback}
       />
     </main>
   );

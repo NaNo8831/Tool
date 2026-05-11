@@ -2,6 +2,7 @@
 
 import { EditableField } from '@/app/components/ui/EditableField';
 import { RichTextEditor } from '@/app/components/ui/RichTextEditor';
+import type { WorkspaceBackupFeedback } from '@/app/lib/workspaceBackup';
 import type { OrganizationInfo } from '@/app/types/dashboard';
 import type { RichTextDocument } from '@/app/types/richText';
 
@@ -12,6 +13,9 @@ interface PreferencesModalProps {
   onSave: (info: OrganizationInfo) => void;
   dashboardTitle: string;
   onDashboardTitleChange: (value: string) => void;
+  onExportWorkspaceBackup: () => void;
+  onImportWorkspaceBackup: (file: File) => void;
+  backupFeedback: WorkspaceBackupFeedback | null;
 }
 
 export function PreferencesModal({
@@ -20,7 +24,10 @@ export function PreferencesModal({
   organizationInfo,
   onSave,
   dashboardTitle,
-  onDashboardTitleChange
+  onDashboardTitleChange,
+  onExportWorkspaceBackup,
+  onImportWorkspaceBackup,
+  backupFeedback
 }: PreferencesModalProps) {
   if (!isOpen) return null;
 
@@ -56,6 +63,52 @@ export function PreferencesModal({
               This name appears in the dashboard header so everyone knows which team or meeting this space supports.
             </p>
           </div>
+
+          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+            <div className="mb-4">
+              <h3 className="text-2xl font-semibold text-slate-950">Workspace Backups</h3>
+              <p className="mt-2 text-lg text-slate-600">
+                Backups protect the local browser data for this Meeting Tool workspace. Export a JSON file before clearing browser storage, switching devices, or restoring a previous workspace.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <button
+                type="button"
+                onClick={onExportWorkspaceBackup}
+                className="rounded-xl bg-blue-600 px-5 py-3 text-lg font-semibold text-white hover:bg-blue-700"
+              >
+                Export Workspace Backup
+              </button>
+
+              <label className="inline-flex cursor-pointer items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-lg font-semibold text-slate-800 hover:bg-slate-50">
+                Import Workspace Backup
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  className="sr-only"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) onImportWorkspaceBackup(file);
+                    event.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
+
+            {backupFeedback ? (
+              <p
+                className={`mt-4 rounded-xl px-4 py-3 text-base font-medium ${
+                  backupFeedback.type === 'success'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
+                }`}
+                role="status"
+              >
+                {backupFeedback.message}
+              </p>
+            ) : null}
+          </section>
 
           <section className="rounded-3xl border border-blue-100 bg-blue-50/80 p-6 shadow-sm">
             <label className="block text-3xl font-bold mb-4 text-slate-950">Why Do We Exist?</label>
