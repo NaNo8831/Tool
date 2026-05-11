@@ -5,20 +5,26 @@ import { PreferencesModal } from "@/app/components/dashboard/PreferencesModal";
 import { MeetingSection } from "@/app/components/meeting/MeetingSection";
 import { ObjectiveCard } from "@/app/components/objectives/ObjectiveCard";
 import { TaskDetailsModal } from "@/app/components/objectives/TaskDetailsModal";
-import { RichTextRenderer } from "@/app/components/ui/RichTextEditor";
+import { ColorSquareSelect } from "@/app/components/ui/ColorSquareSelect";
+import { RichTextEditor, RichTextRenderer } from "@/app/components/ui/RichTextEditor";
 import { useLocalStorage } from "@/app/hooks/useLocalStorage";
 import { useObjectives } from "@/app/hooks/useObjectives";
 import {
   defaultDashboardTitle,
   defaultMeetingSectionOrder,
+  defaultObjectiveColor,
   defaultOrganizationInfo,
+  defaultStandardOperatingObjectives,
+  objectiveColorClasses,
 } from "@/app/lib/objectiveOptions";
 import type {
   MeetingItem,
   MeetingRecord,
   MeetingSectionConfig,
   MeetingSectionKey,
+  StandardOperatingObjective,
 } from "@/app/types/dashboard";
+import type { ObjectiveColor } from "@/app/types/objective";
 import type { RichTextValue } from "@/app/types/richText";
 
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
@@ -143,29 +149,45 @@ export default function Home() {
     updateTaskInput,
     openTaskDetails,
     closeTaskDetails,
+    hasLoadedObjectives,
   } = useObjectives();
-  const [meetings, setMeetings] = useLocalStorage<MeetingRecord[]>(
+  const [meetings, setMeetings, hasLoadedMeetings] = useLocalStorage<MeetingRecord[]>(
     "leadership-meetings",
     initialMeetings,
   );
-  const [activeMeetingId, setActiveMeetingId] = useLocalStorage<number>(
+  const [activeMeetingId, setActiveMeetingId, hasLoadedActiveMeetingId] = useLocalStorage<number>(
     "leadership-active-meeting-id",
     initialMeetings[0].id,
   );
-  const [dashboardTitle, setDashboardTitle] = useLocalStorage(
+  const [dashboardTitle, setDashboardTitle, hasLoadedDashboardTitle] = useLocalStorage(
     "leadership-dashboard-title",
     defaultDashboardTitle,
   );
-  const [organizationInfo, setOrganizationInfo] = useLocalStorage(
+  const [organizationInfo, setOrganizationInfo, hasLoadedOrganizationInfo] = useLocalStorage(
     "leadership-organization-info",
     defaultOrganizationInfo,
   );
-  const [meetingSectionOrder, setMeetingSectionOrder] = useLocalStorage<
+  const [meetingSectionOrder, setMeetingSectionOrder, hasLoadedMeetingSectionOrder] = useLocalStorage<
     MeetingSectionKey[]
   >("leadership-meeting-section-order", defaultMeetingSectionOrder);
-  const [strategicTopicItems, setStrategicTopicItems] = useLocalStorage<
+  const [strategicTopicItems, setStrategicTopicItems, hasLoadedStrategicTopicItems] = useLocalStorage<
     MeetingItem[]
   >(strategicTopicsStorageKey, []);
+  const [
+    standardOperatingObjectives,
+    setStandardOperatingObjectives,
+    hasLoadedStandardOperatingObjectives,
+  ] = useLocalStorage<StandardOperatingObjective[]>(
+    "leadership-standard-operating-objectives",
+    defaultStandardOperatingObjectives,
+  );
+  const [selectedStandardObjectiveId, setSelectedStandardObjectiveId] =
+    useState<number | null>(null);
+  const [standardObjectiveDraft, setStandardObjectiveDraft] = useState({
+    title: "",
+    description: "" as RichTextValue,
+    color: defaultObjectiveColor as ObjectiveColor,
+  });
   const [newAgendaItem, setNewAgendaItem] = useState("");
   const [newTopicItem, setNewTopicItem] = useState("");
   const [newDecisionItem, setNewDecisionItem] = useState("");
@@ -201,8 +223,19 @@ export default function Home() {
   });
   const canNavigateToPreviousMeeting = activeMeetingIndex > 0;
   const canNavigateToNextMeeting = activeMeetingIndex < meetings.length - 1;
+  const hasLoadedDashboardStorage =
+    hasLoadedObjectives &&
+    hasLoadedMeetings &&
+    hasLoadedActiveMeetingId &&
+    hasLoadedDashboardTitle &&
+    hasLoadedOrganizationInfo &&
+    hasLoadedMeetingSectionOrder &&
+    hasLoadedStrategicTopicItems &&
+    hasLoadedStandardOperatingObjectives;
 
   useEffect(() => {
+    if (!hasLoadedMeetings) return;
+
     const timeoutId = window.setTimeout(() => {
       if (window.localStorage.getItem("leadership-meetings") !== null) return;
 
@@ -214,9 +247,11 @@ export default function Home() {
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [setActiveMeetingId, setMeetings]);
+  }, [hasLoadedMeetings, setActiveMeetingId, setMeetings]);
 
   useEffect(() => {
+    if (!hasLoadedStrategicTopicItems) return;
+
     const timeoutId = window.setTimeout(() => {
       if (window.localStorage.getItem(strategicTopicsStorageKey) !== null)
         return;
@@ -228,10 +263,10 @@ export default function Home() {
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [setStrategicTopicItems]);
+  }, [hasLoadedStrategicTopicItems, setStrategicTopicItems]);
 
   useEffect(() => {
-    if (strategicTopicItems.length === 0) return;
+    if (!hasLoadedStrategicTopicItems || strategicTopicItems.length === 0) return;
 
     const fallbackMeeting = meetings[0] ?? activeMeeting;
     const needsNormalization = strategicTopicItems.some(
@@ -250,7 +285,34 @@ export default function Home() {
         normalizeStrategicTopic(item, fallbackMeeting, 0),
       ),
     );
-  }, [activeMeeting, meetings, setStrategicTopicItems, strategicTopicItems]);
+  }, [
+    activeMeeting,
+    hasLoadedStrategicTopicItems,
+    meetings,
+    setStrategicTopicItems,
+    strategicTopicItems,
+  ]);
+
+  useEffect(() => {
+    if (!hasLoadedStandardOperatingObjectives) return;
+
+    const needsColorDefaults = standardOperatingObjectives.some(
+      (item) => item.color === undefined,
+    );
+
+    if (!needsColorDefaults) return;
+
+    setStandardOperatingObjectives(
+      standardOperatingObjectives.map((item) => ({
+        ...item,
+        color: item.color ?? defaultObjectiveColor,
+      })),
+    );
+  }, [
+    hasLoadedStandardOperatingObjectives,
+    setStandardOperatingObjectives,
+    standardOperatingObjectives,
+  ]);
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -447,6 +509,84 @@ export default function Home() {
     setNewCascadeItem("");
   };
 
+  const getStandardObjectiveColor = (item: StandardOperatingObjective) =>
+    item.color ?? defaultObjectiveColor;
+
+  const openStandardObjectiveEditor = (item: StandardOperatingObjective) => {
+    setSelectedStandardObjectiveId(item.id);
+    setStandardObjectiveDraft({
+      title: item.title,
+      description: item.description,
+      color: getStandardObjectiveColor(item),
+    });
+  };
+
+  const closeStandardObjectiveEditor = () => {
+    setSelectedStandardObjectiveId(null);
+    setStandardObjectiveDraft({
+      title: "",
+      description: "",
+      color: defaultObjectiveColor,
+    });
+  };
+
+  const addStandardObjective = () => {
+    const newStandardObjective: StandardOperatingObjective = {
+      id: Date.now(),
+      title: "New Standard Objective",
+      description: "",
+      color: defaultObjectiveColor,
+    };
+
+    setStandardOperatingObjectives([
+      ...standardOperatingObjectives,
+      newStandardObjective,
+    ]);
+    openStandardObjectiveEditor(newStandardObjective);
+  };
+
+  const saveStandardObjective = () => {
+    if (selectedStandardObjectiveId === null) return;
+
+    const nextTitle = standardObjectiveDraft.title.trim();
+    setStandardOperatingObjectives(
+      standardOperatingObjectives.map((item) =>
+        item.id === selectedStandardObjectiveId
+          ? {
+              ...item,
+              title: nextTitle || "New Standard Objective",
+              description: standardObjectiveDraft.description,
+              color: standardObjectiveDraft.color,
+            }
+          : item,
+      ),
+    );
+    closeStandardObjectiveEditor();
+  };
+
+  const deleteStandardObjective = () => {
+    if (selectedStandardObjectiveId === null) return;
+    if (!window.confirm("Delete this standard operating objective?")) return;
+
+    setStandardOperatingObjectives(
+      standardOperatingObjectives.filter(
+        (item) => item.id !== selectedStandardObjectiveId,
+      ),
+    );
+    closeStandardObjectiveEditor();
+  };
+
+  const updateStandardObjectiveColor = (
+    itemId: number,
+    color: ObjectiveColor,
+  ) => {
+    setStandardOperatingObjectives(
+      standardOperatingObjectives.map((item) =>
+        item.id === itemId ? { ...item, color } : item,
+      ),
+    );
+  };
+
   const meetingSections: Record<MeetingSectionKey, MeetingSectionConfig> = {
     agenda: {
       id: "agenda",
@@ -533,6 +673,18 @@ export default function Home() {
     return <p className="text-slate-700 whitespace-pre-line">{value}</p>;
   };
 
+  if (!hasLoadedDashboardStorage) {
+    return (
+      <main className="min-h-screen bg-slate-100 p-8">
+        <div className="mx-auto flex min-h-[60vh] max-w-7xl items-center justify-center">
+          <div className="rounded-3xl border border-slate-200 bg-white px-6 py-5 text-center text-slate-600 shadow-sm">
+            Loading saved dashboard…
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-slate-100 p-8">
       <div className="max-w-7xl mx-auto">
@@ -565,13 +717,6 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="bg-amber-50 rounded-3xl p-6 md:p-8 shadow border border-amber-100">
-            <h2 className="font-bold text-2xl mb-4 text-black">Rally Cry</h2>
-            <p className="text-3xl font-bold leading-snug text-slate-900 whitespace-pre-line">
-              {organizationInfoWithDefaults.rallyCry || "Rally Cry"}
-            </p>
-          </section>
-
           <div className="grid md:grid-cols-3 gap-5">
             <div className="bg-white rounded-3xl p-5 shadow">
               <h2 className="font-bold text-lg mb-3 text-black">
@@ -592,7 +737,52 @@ export default function Home() {
               {renderMissionValue(organizationInfoWithDefaults.howSucceed)}
             </div>
           </div>
+
+          <section className="rounded-3xl border border-blue-100 bg-blue-50/80 p-6 shadow md:p-8">
+            <h2 className="mb-4 text-2xl font-bold text-slate-900">Top Priority</h2>
+            <p className="text-3xl font-bold leading-snug text-slate-900 whitespace-pre-line">
+              {organizationInfoWithDefaults.rallyCry || "Top Priority"}
+            </p>
+          </section>
         </div>
+
+        <section className="mb-10 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+              Standard Operating Objectives
+            </p>
+            <button
+              type="button"
+              onClick={addStandardObjective}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-xl font-semibold leading-none text-white shadow-sm hover:bg-blue-700"
+              aria-label="Add standard operating objective"
+            >
+              +
+            </button>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-4">
+            {standardOperatingObjectives.map((item) => (
+              <div
+                key={item.id}
+                className={`flex items-center gap-3 rounded-2xl border border-l-8 border-blue-100 bg-blue-50/70 p-3 text-slate-900 shadow-sm transition hover:border-blue-200 hover:bg-blue-100/80 ${objectiveColorClasses[getStandardObjectiveColor(item)]}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => openStandardObjectiveEditor(item)}
+                  className="min-w-0 flex-1 text-left text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-300 rounded-lg"
+                >
+                  <span className="block truncate">{item.title}</span>
+                </button>
+                <ColorSquareSelect
+                  value={getStandardObjectiveColor(item)}
+                  onChange={(color) => updateStandardObjectiveColor(item.id, color)}
+                  ariaLabel="Standard operating objective color"
+                />
+              </div>
+            ))}
+          </div>
+        </section>
 
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h2 className="text-3xl font-bold text-slate-900">
@@ -712,6 +902,99 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      {selectedStandardObjectiveId !== null ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl md:p-8">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+                  Standard Operating Objective
+                </p>
+                <h2 className="mt-1 text-3xl font-bold text-slate-950">
+                  Edit Objective
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeStandardObjectiveEditor}
+                className="rounded-full px-3 py-1 text-2xl leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Close standard operating objective editor"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              <label className="block">
+                <span className="mb-2 block text-lg font-semibold text-slate-900">
+                  Title
+                </span>
+                <input
+                  type="text"
+                  value={standardObjectiveDraft.title}
+                  onChange={(event) =>
+                    setStandardObjectiveDraft((draft) => ({
+                      ...draft,
+                      title: event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  placeholder="New Standard Objective"
+                />
+              </label>
+
+              <div>
+                <span className="mb-2 block text-lg font-semibold text-slate-900">
+                  Description
+                </span>
+                <RichTextEditor
+                  key={selectedStandardObjectiveId}
+                  value={standardObjectiveDraft.description}
+                  onChange={(description) =>
+                    setStandardObjectiveDraft((draft) => ({
+                      ...draft,
+                      description,
+                    }))
+                  }
+                  placeholder="Add standard operating objective details..."
+                  className="bg-blue-50/50"
+                  editorClassName="text-base leading-relaxed"
+                  minHeightClassName="min-h-[180px]"
+                  ariaLabel="Standard operating objective description"
+                  editingMode="always"
+                />
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                type="button"
+                onClick={deleteStandardObjective}
+                className="rounded-xl border border-red-200 bg-red-50 px-5 py-2 font-semibold text-red-700 hover:bg-red-100"
+              >
+                Delete
+              </button>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeStandardObjectiveEditor}
+                  className="rounded-xl bg-slate-500 px-5 py-2 font-semibold text-white hover:bg-slate-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveStandardObjective}
+                  className="rounded-xl bg-blue-600 px-5 py-2 font-semibold text-white hover:bg-blue-700"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {selectedObjective && selectedTaskDetails ? (
         <TaskDetailsModal

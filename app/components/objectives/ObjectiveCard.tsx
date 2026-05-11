@@ -2,6 +2,7 @@
 
 import { useState, type DragEvent } from 'react';
 import { EditableField } from '@/app/components/ui/EditableField';
+import { ColorSquareSelect } from '@/app/components/ui/ColorSquareSelect';
 import { RichTextEditor } from '@/app/components/ui/RichTextEditor';
 import { TaskList } from '@/app/components/objectives/TaskList';
 import { objectiveColorClasses } from '@/app/lib/objectiveOptions';
@@ -53,7 +54,7 @@ export function ObjectiveCard({
       onDrop={() => onDrop(objective.id)}
       className={`relative rounded-3xl p-6 shadow bg-white/80 backdrop-blur-sm border-t-[18px] ${objectiveColorClasses[objective.color]} ${isEditingRichText ? 'cursor-default' : 'cursor-grab'} transition hover:shadow-xl`}
     >
-      <div className="pr-14 mb-5">
+      <div className="mb-5 pr-24">
         <EditableField
           value={objective.title}
           onSave={(value) => onUpdateTitle(objective.id, value)}
@@ -71,31 +72,24 @@ export function ObjectiveCard({
         />
       </div>
 
-      <button
-        type="button"
-        onClick={() => onDelete(objective.id)}
-        className="absolute right-5 top-5 w-10 h-10 rounded-full bg-red-100 text-red-700 flex items-center justify-center hover:bg-red-200"
-        aria-label="Delete objective"
-      >
-        ×
-      </button>
+      <div className="absolute right-5 top-5 flex items-center gap-2">
+        <ColorSquareSelect
+          value={objective.color}
+          onChange={(color) => onUpdateColor(objective.id, color)}
+          ariaLabel="Objective color"
+        />
+        <button
+          type="button"
+          onClick={() => onDelete(objective.id)}
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-700 hover:bg-red-200"
+          aria-label="Delete objective"
+        >
+          ×
+        </button>
+      </div>
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
-        <div className="flex items-center gap-3 flex-wrap">
-          <label className="text-sm font-semibold text-slate-700">Status</label>
-          <select
-            value={objective.color}
-            onChange={(e) => onUpdateColor(objective.id, e.target.value as Objective['color'])}
-            className="border rounded-xl px-3 py-2 bg-white text-slate-900"
-          >
-            <option value="dark-green">Dark Green</option>
-            <option value="green">Green</option>
-            <option value="yellow">Yellow</option>
-            <option value="orange">Orange</option>
-            <option value="red">Red</option>
-          </select>
-        </div>
-        <div className="text-sm text-slate-500">Drag the section to reorder</div>
+      <div className="mb-6 flex justify-end text-sm text-slate-500">
+        Drag the section to reorder
       </div>
 
       <TaskList

@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { RichTextValue } from "@/app/types/richText";
+import type { ObjectiveColor } from "@/app/types/objective";
 
 export interface OrganizationInfo {
   whyExist: string;
@@ -7,6 +8,13 @@ export interface OrganizationInfo {
   howBehave: RichTextValue;
   whatDo: RichTextValue;
   howSucceed: RichTextValue;
+}
+
+export interface StandardOperatingObjective {
+  id: number;
+  title: string;
+  description: RichTextValue;
+  color?: ObjectiveColor;
 }
 
 export interface MeetingItem {
