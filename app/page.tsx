@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { BackupRestoreModal } from "@/app/components/dashboard/BackupRestoreModal";
 import { PlaybookDefinitionsModal } from "@/app/components/dashboard/PlaybookDefinitionsModal";
 import { MeetingSection } from "@/app/components/meeting/MeetingSection";
@@ -201,6 +201,7 @@ export default function Home() {
   const [newDecisionItem, setNewDecisionItem] = useState("");
   const [newCascadeItem, setNewCascadeItem] = useState("");
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
   const [showPlaybookDefinitions, setShowPlaybookDefinitions] = useState(false);
   const [showBackupRestore, setShowBackupRestore] = useState(false);
   const [backupFeedback, setBackupFeedback] =
@@ -246,6 +247,24 @@ export default function Home() {
     hasLoadedMeetingSectionOrder &&
     hasLoadedStrategicTopicItems &&
     hasLoadedStandardOperatingObjectives;
+
+  useEffect(() => {
+    if (!showSettingsMenu) return;
+
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      const menuElement = settingsMenuRef.current;
+      if (!menuElement || !(event.target instanceof Node)) return;
+      if (menuElement.contains(event.target)) return;
+
+      setShowSettingsMenu(false);
+    };
+
+    document.addEventListener("pointerdown", handleOutsidePointerDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointerDown);
+    };
+  }, [showSettingsMenu]);
 
   useEffect(() => {
     if (!hasLoadedMeetings) return;
@@ -857,7 +876,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="relative self-start">
+          <div ref={settingsMenuRef} className="relative self-start">
             <button
               type="button"
               onClick={() => setShowSettingsMenu((isOpen) => !isOpen)}
