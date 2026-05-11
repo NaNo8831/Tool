@@ -2,12 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { BackupRestoreModal } from "@/app/components/dashboard/BackupRestoreModal";
+import { MeetingSetupModal } from "@/app/components/dashboard/MeetingSetupModal";
 import { PlaybookDefinitionsModal } from "@/app/components/dashboard/PlaybookDefinitionsModal";
 import { MeetingSection } from "@/app/components/meeting/MeetingSection";
 import { ObjectiveCard } from "@/app/components/objectives/ObjectiveCard";
 import { TaskDetailsModal } from "@/app/components/objectives/TaskDetailsModal";
 import { ColorSquareSelect } from "@/app/components/ui/ColorSquareSelect";
-import { RichTextEditor, RichTextRenderer } from "@/app/components/ui/RichTextEditor";
+import {
+  RichTextEditor,
+  RichTextRenderer,
+} from "@/app/components/ui/RichTextEditor";
 import { useLocalStorage } from "@/app/hooks/useLocalStorage";
 import { useObjectives } from "@/app/hooks/useObjectives";
 import {
@@ -38,7 +42,11 @@ import type { RichTextValue } from "@/app/types/richText";
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
 
 const strategicTopicsStorageKey = "leadership-strategic-topic-items";
-type MeetingSpecificSectionKey = "agendaItems" | "decisionItems" | "cascadeItems";
+const meetingSetupCompletedStorageKey = "leadership-meeting-setup-completed";
+type MeetingSpecificSectionKey =
+  | "agendaItems"
+  | "decisionItems"
+  | "cascadeItems";
 
 const createBlankMeeting = (): MeetingRecord => ({
   id: Date.now(),
@@ -159,28 +167,36 @@ export default function Home() {
     closeTaskDetails,
     hasLoadedObjectives,
   } = useObjectives();
-  const [meetings, setMeetings, hasLoadedMeetings] = useLocalStorage<MeetingRecord[]>(
-    "leadership-meetings",
-    initialMeetings,
+  const [meetings, setMeetings, hasLoadedMeetings] = useLocalStorage<
+    MeetingRecord[]
+  >("leadership-meetings", initialMeetings);
+  const [activeMeetingId, setActiveMeetingId, hasLoadedActiveMeetingId] =
+    useLocalStorage<number>(
+      "leadership-active-meeting-id",
+      initialMeetings[0].id,
+    );
+  const [dashboardTitle, setDashboardTitle, hasLoadedDashboardTitle] =
+    useLocalStorage("leadership-dashboard-title", defaultDashboardTitle);
+  const [organizationInfo, setOrganizationInfo, hasLoadedOrganizationInfo] =
+    useLocalStorage("leadership-organization-info", defaultOrganizationInfo);
+  const [
+    hasCompletedMeetingSetup,
+    setHasCompletedMeetingSetup,
+    hasLoadedMeetingSetup,
+  ] = useLocalStorage(meetingSetupCompletedStorageKey, false);
+  const [
+    meetingSectionOrder,
+    setMeetingSectionOrder,
+    hasLoadedMeetingSectionOrder,
+  ] = useLocalStorage<MeetingSectionKey[]>(
+    "leadership-meeting-section-order",
+    defaultMeetingSectionOrder,
   );
-  const [activeMeetingId, setActiveMeetingId, hasLoadedActiveMeetingId] = useLocalStorage<number>(
-    "leadership-active-meeting-id",
-    initialMeetings[0].id,
-  );
-  const [dashboardTitle, setDashboardTitle, hasLoadedDashboardTitle] = useLocalStorage(
-    "leadership-dashboard-title",
-    defaultDashboardTitle,
-  );
-  const [organizationInfo, setOrganizationInfo, hasLoadedOrganizationInfo] = useLocalStorage(
-    "leadership-organization-info",
-    defaultOrganizationInfo,
-  );
-  const [meetingSectionOrder, setMeetingSectionOrder, hasLoadedMeetingSectionOrder] = useLocalStorage<
-    MeetingSectionKey[]
-  >("leadership-meeting-section-order", defaultMeetingSectionOrder);
-  const [strategicTopicItems, setStrategicTopicItems, hasLoadedStrategicTopicItems] = useLocalStorage<
-    MeetingItem[]
-  >(strategicTopicsStorageKey, []);
+  const [
+    strategicTopicItems,
+    setStrategicTopicItems,
+    hasLoadedStrategicTopicItems,
+  ] = useLocalStorage<MeetingItem[]>(strategicTopicsStorageKey, []);
   const [
     standardOperatingObjectives,
     setStandardOperatingObjectives,
@@ -202,6 +218,7 @@ export default function Home() {
   const [newCascadeItem, setNewCascadeItem] = useState("");
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
+  const [showMeetingSetup, setShowMeetingSetup] = useState(false);
   const [showPlaybookDefinitions, setShowPlaybookDefinitions] = useState(false);
   const [showBackupRestore, setShowBackupRestore] = useState(false);
   const [backupFeedback, setBackupFeedback] =
@@ -244,9 +261,18 @@ export default function Home() {
     hasLoadedActiveMeetingId &&
     hasLoadedDashboardTitle &&
     hasLoadedOrganizationInfo &&
+    hasLoadedMeetingSetup &&
     hasLoadedMeetingSectionOrder &&
     hasLoadedStrategicTopicItems &&
     hasLoadedStandardOperatingObjectives;
+
+  useEffect(() => {
+    if (!hasLoadedMeetingSetup || hasCompletedMeetingSetup) return;
+
+    const timeoutId = window.setTimeout(() => setShowMeetingSetup(true), 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [hasCompletedMeetingSetup, hasLoadedMeetingSetup]);
 
   useEffect(() => {
     if (!showSettingsMenu) return;
@@ -299,7 +325,8 @@ export default function Home() {
   }, [hasLoadedStrategicTopicItems, setStrategicTopicItems]);
 
   useEffect(() => {
-    if (!hasLoadedStrategicTopicItems || strategicTopicItems.length === 0) return;
+    if (!hasLoadedStrategicTopicItems || strategicTopicItems.length === 0)
+      return;
 
     const fallbackMeeting = meetings[0] ?? activeMeeting;
     const needsNormalization = strategicTopicItems.some(
@@ -758,6 +785,7 @@ export default function Home() {
       "leadership-active-meeting-id": activeMeeting.id,
       "leadership-dashboard-title": dashboardTitle,
       "leadership-organization-info": organizationInfo,
+      [meetingSetupCompletedStorageKey]: hasCompletedMeetingSetup,
       "leadership-meeting-section-order": meetingSectionOrder,
       [strategicTopicsStorageKey]: strategicTopicItems,
       "leadership-standard-operating-objectives": standardOperatingObjectives,
@@ -871,9 +899,6 @@ export default function Home() {
             <h1 className="text-5xl font-bold text-slate-900">
               {dashboardTitle}
             </h1>
-            <p className="text-slate-600 mt-3 text-lg">
-              Name your team or meeting from the menu.
-            </p>
           </div>
 
           <div ref={settingsMenuRef} className="relative self-start">
@@ -897,6 +922,17 @@ export default function Home() {
                 role="menu"
                 aria-label="Dashboard menu"
               >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMeetingSetup(true);
+                    setShowSettingsMenu(false);
+                  }}
+                  className="block w-full px-5 py-3 text-left text-slate-800 hover:bg-blue-50 hover:text-blue-700"
+                  role="menuitem"
+                >
+                  Meeting Setup
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -1045,7 +1081,9 @@ export default function Home() {
                 </button>
                 <ColorSquareSelect
                   value={getStandardObjectiveColor(item)}
-                  onChange={(color) => updateStandardObjectiveColor(item.id, color)}
+                  onChange={(color) =>
+                    updateStandardObjectiveColor(item.id, color)
+                  }
                   ariaLabel="Standard operating objective color"
                 />
               </div>
@@ -1254,6 +1292,17 @@ export default function Home() {
           }
         />
       ) : null}
+
+      <MeetingSetupModal
+        isOpen={showMeetingSetup}
+        onClose={() => setShowMeetingSetup(false)}
+        organizationInfo={organizationInfoWithDefaults}
+        onSave={setOrganizationInfo}
+        dashboardTitle={dashboardTitle}
+        onDashboardTitleChange={setDashboardTitle}
+        onComplete={() => setHasCompletedMeetingSetup(true)}
+        requireCompletion={!hasCompletedMeetingSetup}
+      />
 
       <PlaybookDefinitionsModal
         isOpen={showPlaybookDefinitions}
