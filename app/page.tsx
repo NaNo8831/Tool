@@ -794,7 +794,7 @@ export default function Home() {
         </div>
 
         <div className="mb-10 space-y-5">
-          <section className="bg-white rounded-3xl p-6 text-center shadow border-l-8 border-blue-500 md:p-8">
+          <section className="bg-white rounded-3xl p-6 text-center shadow md:p-8">
             <h2 className="mb-4 text-2xl font-bold text-black">
               Why Do We Exist?
             </h2>
@@ -885,11 +885,11 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr))]">
             {standardOperatingObjectives.map((item) => (
               <div
                 key={item.id}
-                className={`flex min-w-64 flex-1 items-center gap-3 rounded-2xl border border-l-8 border-blue-100 bg-blue-50/70 p-3 text-slate-900 shadow-sm transition hover:border-blue-200 hover:bg-blue-100/80 sm:flex-none ${objectiveColorClasses[getStandardObjectiveColor(item)]}`}
+                className={`flex min-w-0 items-center gap-3 rounded-2xl border border-l-8 border-blue-100 bg-blue-50/70 p-3 text-slate-900 shadow-sm transition hover:border-blue-200 hover:bg-blue-100/80 ${objectiveColorClasses[getStandardObjectiveColor(item)]}`}
               >
                 <button
                   type="button"
