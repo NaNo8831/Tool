@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, type DragEvent } from "react";
-import { PreferencesModal } from "@/app/components/dashboard/PreferencesModal";
+import { BackupRestoreModal } from "@/app/components/dashboard/BackupRestoreModal";
+import { PlaybookDefinitionsModal } from "@/app/components/dashboard/PlaybookDefinitionsModal";
 import { MeetingSection } from "@/app/components/meeting/MeetingSection";
 import { ObjectiveCard } from "@/app/components/objectives/ObjectiveCard";
 import { TaskDetailsModal } from "@/app/components/objectives/TaskDetailsModal";
@@ -199,7 +200,9 @@ export default function Home() {
   const [newTopicItem, setNewTopicItem] = useState("");
   const [newDecisionItem, setNewDecisionItem] = useState("");
   const [newCascadeItem, setNewCascadeItem] = useState("");
-  const [showPreferences, setShowPreferences] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showPlaybookDefinitions, setShowPlaybookDefinitions] = useState(false);
+  const [showBackupRestore, setShowBackupRestore] = useState(false);
   const [backupFeedback, setBackupFeedback] =
     useState<WorkspaceBackupFeedback | null>(null);
   const [draggingMeetingSection, setDraggingMeetingSection] =
@@ -850,17 +853,56 @@ export default function Home() {
               {dashboardTitle}
             </h1>
             <p className="text-slate-600 mt-3 text-lg">
-              Name your team or meeting from the settings menu.
+              Name your team or meeting from the menu.
             </p>
           </div>
 
-          <button
-            onClick={() => setShowPreferences(true)}
-            className="w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center hover:bg-blue-700"
-            aria-label="Open preferences"
-          >
-            <span className="text-2xl">⚙️</span>
-          </button>
+          <div className="relative self-start">
+            <button
+              type="button"
+              onClick={() => setShowSettingsMenu((isOpen) => !isOpen)}
+              className="flex h-14 items-center gap-2 rounded-full bg-blue-600 px-5 font-semibold text-white shadow-lg hover:bg-blue-700"
+              aria-expanded={showSettingsMenu}
+              aria-haspopup="menu"
+              aria-label="Open dashboard menu"
+            >
+              <span className="text-2xl leading-none" aria-hidden="true">
+                ☰
+              </span>
+              Menu
+            </button>
+
+            {showSettingsMenu ? (
+              <div
+                className="absolute right-0 z-40 mt-3 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl"
+                role="menu"
+                aria-label="Dashboard menu"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPlaybookDefinitions(true);
+                    setShowSettingsMenu(false);
+                  }}
+                  className="block w-full px-5 py-3 text-left text-slate-800 hover:bg-blue-50 hover:text-blue-700"
+                  role="menuitem"
+                >
+                  Playbook Definitions
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBackupRestore(true);
+                    setShowSettingsMenu(false);
+                  }}
+                  className="block w-full px-5 py-3 text-left text-slate-800 hover:bg-blue-50 hover:text-blue-700"
+                  role="menuitem"
+                >
+                  Backup / Restore
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <div className="mb-10 space-y-5">
@@ -1194,13 +1236,18 @@ export default function Home() {
         />
       ) : null}
 
-      <PreferencesModal
-        isOpen={showPreferences}
-        onClose={() => setShowPreferences(false)}
+      <PlaybookDefinitionsModal
+        isOpen={showPlaybookDefinitions}
+        onClose={() => setShowPlaybookDefinitions(false)}
         organizationInfo={organizationInfoWithDefaults}
         onSave={setOrganizationInfo}
         dashboardTitle={dashboardTitle}
         onDashboardTitleChange={setDashboardTitle}
+      />
+
+      <BackupRestoreModal
+        isOpen={showBackupRestore}
+        onClose={() => setShowBackupRestore(false)}
         onExportWorkspaceBackup={handleExportWorkspaceBackup}
         onImportWorkspaceBackup={handleImportWorkspaceBackup}
         backupFeedback={backupFeedback}
