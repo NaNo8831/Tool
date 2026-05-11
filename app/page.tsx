@@ -762,7 +762,7 @@ export default function Home() {
   if (!hasLoadedDashboardStorage) {
     return (
       <main className="min-h-screen bg-slate-100 p-8">
-        <div className="mx-auto flex min-h-[60vh] max-w-7xl items-center justify-center">
+        <div className="mx-auto flex min-h-[60vh] max-w-[1600px] items-center justify-center">
           <div className="rounded-3xl border border-slate-200 bg-white px-6 py-5 text-center text-slate-600 shadow-sm">
             Loading saved dashboard…
           </div>
@@ -773,7 +773,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-100 p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="mx-auto max-w-[1600px]">
         <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
           <div>
             <h1 className="text-5xl font-bold text-slate-900">
@@ -794,11 +794,11 @@ export default function Home() {
         </div>
 
         <div className="mb-10 space-y-5">
-          <section className="bg-white rounded-3xl p-6 md:p-8 shadow border-l-8 border-blue-500">
-            <h2 className="font-bold text-2xl mb-4 text-black">
+          <section className="bg-white rounded-3xl p-6 text-center shadow md:p-8">
+            <h2 className="mb-4 text-2xl font-bold text-black">
               Why Do We Exist?
             </h2>
-            <div className="text-lg leading-relaxed">
+            <div className="mx-auto max-w-4xl text-lg leading-relaxed">
               {renderMissionValue(organizationInfoWithDefaults.whyExist)}
             </div>
           </section>
@@ -824,51 +824,15 @@ export default function Home() {
             </div>
           </div>
 
-          <section className="rounded-3xl border border-blue-100 bg-blue-50/80 p-6 shadow md:p-8">
-            <h2 className="mb-4 text-2xl font-bold text-slate-900">Top Priority</h2>
+          <section className="mx-auto max-w-4xl rounded-3xl border border-blue-100 bg-blue-50/80 p-6 text-center shadow md:p-8">
+            <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-blue-600">
+              Top Priority
+            </p>
             <p className="text-3xl font-bold leading-snug text-slate-900 whitespace-pre-line">
               {organizationInfoWithDefaults.rallyCry || "Top Priority"}
             </p>
           </section>
         </div>
-
-        <section className="mb-10 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
-              Standard Operating Objectives
-            </p>
-            <button
-              type="button"
-              onClick={addStandardObjective}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-xl font-semibold leading-none text-white shadow-sm hover:bg-blue-700"
-              aria-label="Add standard operating objective"
-            >
-              +
-            </button>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-4">
-            {standardOperatingObjectives.map((item) => (
-              <div
-                key={item.id}
-                className={`flex items-center gap-3 rounded-2xl border border-l-8 border-blue-100 bg-blue-50/70 p-3 text-slate-900 shadow-sm transition hover:border-blue-200 hover:bg-blue-100/80 ${objectiveColorClasses[getStandardObjectiveColor(item)]}`}
-              >
-                <button
-                  type="button"
-                  onClick={() => openStandardObjectiveEditor(item)}
-                  className="min-w-0 flex-1 text-left text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-300 rounded-lg"
-                >
-                  <span className="block truncate">{item.title}</span>
-                </button>
-                <ColorSquareSelect
-                  value={getStandardObjectiveColor(item)}
-                  onChange={(color) => updateStandardObjectiveColor(item.id, color)}
-                  ariaLabel="Standard operating objective color"
-                />
-              </div>
-            ))}
-          </div>
-        </section>
 
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h2 className="text-3xl font-bold text-slate-900">
@@ -905,6 +869,44 @@ export default function Home() {
             />
           ))}
         </div>
+
+        <section className="mt-10 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+              Standard Operating Objectives
+            </p>
+            <button
+              type="button"
+              onClick={addStandardObjective}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-xl font-semibold leading-none text-white shadow-sm hover:bg-blue-700"
+              aria-label="Add standard operating objective"
+            >
+              +
+            </button>
+          </div>
+
+          <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr))]">
+            {standardOperatingObjectives.map((item) => (
+              <div
+                key={item.id}
+                className={`flex min-w-0 items-center gap-3 rounded-2xl border border-l-8 border-blue-100 bg-blue-50/70 p-3 text-slate-900 shadow-sm transition hover:border-blue-200 hover:bg-blue-100/80 ${objectiveColorClasses[getStandardObjectiveColor(item)]}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => openStandardObjectiveEditor(item)}
+                  className="min-w-0 flex-1 text-left text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-300 rounded-lg"
+                >
+                  <span className="block truncate">{item.title}</span>
+                </button>
+                <ColorSquareSelect
+                  value={getStandardObjectiveColor(item)}
+                  onChange={(color) => updateStandardObjectiveColor(item.id, color)}
+                  ariaLabel="Standard operating objective color"
+                />
+              </div>
+            ))}
+          </div>
+        </section>
 
         <div className="mt-10 mb-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
