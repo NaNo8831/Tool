@@ -5,19 +5,21 @@ import { PreferencesModal } from "@/app/components/dashboard/PreferencesModal";
 import { MeetingSection } from "@/app/components/meeting/MeetingSection";
 import { ObjectiveCard } from "@/app/components/objectives/ObjectiveCard";
 import { TaskDetailsModal } from "@/app/components/objectives/TaskDetailsModal";
-import { RichTextRenderer } from "@/app/components/ui/RichTextEditor";
+import { RichTextEditor, RichTextRenderer } from "@/app/components/ui/RichTextEditor";
 import { useLocalStorage } from "@/app/hooks/useLocalStorage";
 import { useObjectives } from "@/app/hooks/useObjectives";
 import {
   defaultDashboardTitle,
   defaultMeetingSectionOrder,
   defaultOrganizationInfo,
+  defaultStandardOperatingObjectives,
 } from "@/app/lib/objectiveOptions";
 import type {
   MeetingItem,
   MeetingRecord,
   MeetingSectionConfig,
   MeetingSectionKey,
+  StandardOperatingObjective,
 } from "@/app/types/dashboard";
 import type { RichTextValue } from "@/app/types/richText";
 
@@ -166,6 +168,17 @@ export default function Home() {
   const [strategicTopicItems, setStrategicTopicItems] = useLocalStorage<
     MeetingItem[]
   >(strategicTopicsStorageKey, []);
+  const [standardOperatingObjectives, setStandardOperatingObjectives] =
+    useLocalStorage<StandardOperatingObjective[]>(
+      "leadership-standard-operating-objectives",
+      defaultStandardOperatingObjectives,
+    );
+  const [selectedStandardObjectiveId, setSelectedStandardObjectiveId] =
+    useState<number | null>(null);
+  const [standardObjectiveDraft, setStandardObjectiveDraft] = useState({
+    title: "",
+    description: "" as RichTextValue,
+  });
   const [newAgendaItem, setNewAgendaItem] = useState("");
   const [newTopicItem, setNewTopicItem] = useState("");
   const [newDecisionItem, setNewDecisionItem] = useState("");
@@ -447,6 +460,64 @@ export default function Home() {
     setNewCascadeItem("");
   };
 
+  const openStandardObjectiveEditor = (item: StandardOperatingObjective) => {
+    setSelectedStandardObjectiveId(item.id);
+    setStandardObjectiveDraft({
+      title: item.title,
+      description: item.description,
+    });
+  };
+
+  const closeStandardObjectiveEditor = () => {
+    setSelectedStandardObjectiveId(null);
+    setStandardObjectiveDraft({ title: "", description: "" });
+  };
+
+  const addStandardObjective = () => {
+    const newStandardObjective: StandardOperatingObjective = {
+      id: Date.now(),
+      title: "New Standard Objective",
+      description: "",
+    };
+
+    setStandardOperatingObjectives([
+      ...standardOperatingObjectives,
+      newStandardObjective,
+    ]);
+    openStandardObjectiveEditor(newStandardObjective);
+  };
+
+  const saveStandardObjective = () => {
+    if (selectedStandardObjectiveId === null) return;
+
+    const nextTitle = standardObjectiveDraft.title.trim();
+    setStandardOperatingObjectives(
+      standardOperatingObjectives.map((item) =>
+        item.id === selectedStandardObjectiveId
+          ? {
+              ...item,
+              title: nextTitle || "New Standard Objective",
+              description: standardObjectiveDraft.description,
+            }
+          : item,
+      ),
+    );
+    closeStandardObjectiveEditor();
+  };
+
+  const deleteStandardObjective = () => {
+    if (selectedStandardObjectiveId === null) return;
+    if (!window.confirm("Delete this standard operating objective?")) return;
+
+    setStandardOperatingObjectives(
+      standardOperatingObjectives.filter(
+        (item) => item.id !== selectedStandardObjectiveId,
+      ),
+    );
+    closeStandardObjectiveEditor();
+  };
+
+
   const meetingSections: Record<MeetingSectionKey, MeetingSectionConfig> = {
     agenda: {
       id: "agenda",
@@ -586,8 +657,8 @@ export default function Home() {
             </div>
           </div>
 
-          <section className="bg-amber-50 rounded-3xl p-6 md:p-8 shadow border border-amber-100">
-            <h2 className="font-bold text-2xl mb-4 text-black">Top Priority</h2>
+          <section className="rounded-3xl border border-blue-100 bg-blue-50/80 p-6 shadow md:p-8">
+            <h2 className="mb-4 text-2xl font-bold text-slate-900">Top Priority</h2>
             <p className="text-3xl font-bold leading-snug text-slate-900 whitespace-pre-line">
               {organizationInfoWithDefaults.rallyCry || "Top Priority"}
             </p>
@@ -595,41 +666,30 @@ export default function Home() {
         </div>
 
         <section className="mb-10 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
-                SOP Workflow
-              </p>
-              <h2 className="text-2xl font-bold text-slate-900">
-                From priority to repeatable operations
-              </h2>
-            </div>
-            <p className="max-w-2xl text-sm text-slate-500">
-              Keep the operating rhythm lightweight: define the need, document the standard, assign ownership, and review it in meetings.
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+              Standard Operating Objectives
             </p>
+            <button
+              type="button"
+              onClick={addStandardObjective}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-xl font-semibold leading-none text-white shadow-sm hover:bg-blue-700"
+              aria-label="Add standard operating objective"
+            >
+              +
+            </button>
           </div>
 
           <div className="grid gap-3 md:grid-cols-4">
-            {[
-              ["1", "Identify", "Name the recurring work or gap tied to the top priority."],
-              ["2", "Document", "Capture the simplest repeatable standard for the team."],
-              ["3", "Assign", "Clarify the owner and where follow-up actions live."],
-              ["4", "Review", "Inspect adoption and update the SOP when reality changes."],
-            ].map(([step, title, description]) => (
-              <div
-                key={step}
-                className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4"
+            {standardOperatingObjectives.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => openStandardObjectiveEditor(item)}
+                className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 text-left text-lg font-semibold text-slate-900 shadow-sm transition hover:border-blue-200 hover:bg-blue-100/80 focus:outline-none focus:ring-2 focus:ring-blue-300"
               >
-                <div className="mb-3 flex items-center gap-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
-                    {step}
-                  </span>
-                  <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-                </div>
-                <p className="text-sm leading-relaxed text-slate-600">
-                  {description}
-                </p>
-              </div>
+                <span className="block truncate">{item.title}</span>
+              </button>
             ))}
           </div>
         </section>
@@ -752,6 +812,99 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      {selectedStandardObjectiveId !== null ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl md:p-8">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+                  Standard Operating Objective
+                </p>
+                <h2 className="mt-1 text-3xl font-bold text-slate-950">
+                  Edit Objective
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeStandardObjectiveEditor}
+                className="rounded-full px-3 py-1 text-2xl leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Close standard operating objective editor"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              <label className="block">
+                <span className="mb-2 block text-lg font-semibold text-slate-900">
+                  Title
+                </span>
+                <input
+                  type="text"
+                  value={standardObjectiveDraft.title}
+                  onChange={(event) =>
+                    setStandardObjectiveDraft((draft) => ({
+                      ...draft,
+                      title: event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  placeholder="New Standard Objective"
+                />
+              </label>
+
+              <div>
+                <span className="mb-2 block text-lg font-semibold text-slate-900">
+                  Description
+                </span>
+                <RichTextEditor
+                  key={selectedStandardObjectiveId}
+                  value={standardObjectiveDraft.description}
+                  onChange={(description) =>
+                    setStandardObjectiveDraft((draft) => ({
+                      ...draft,
+                      description,
+                    }))
+                  }
+                  placeholder="Add standard operating objective details..."
+                  className="bg-blue-50/50"
+                  editorClassName="text-base leading-relaxed"
+                  minHeightClassName="min-h-[180px]"
+                  ariaLabel="Standard operating objective description"
+                  editingMode="always"
+                />
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                type="button"
+                onClick={deleteStandardObjective}
+                className="rounded-xl border border-red-200 bg-red-50 px-5 py-2 font-semibold text-red-700 hover:bg-red-100"
+              >
+                Delete
+              </button>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeStandardObjectiveEditor}
+                  className="rounded-xl bg-slate-500 px-5 py-2 font-semibold text-white hover:bg-slate-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveStandardObjective}
+                  className="rounded-xl bg-blue-600 px-5 py-2 font-semibold text-white hover:bg-blue-700"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {selectedObjective && selectedTaskDetails ? (
         <TaskDetailsModal

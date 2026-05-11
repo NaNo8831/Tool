@@ -111,7 +111,7 @@ export function PreferencesModal({
             </div>
           </div>
 
-          <section className="rounded-3xl border border-amber-100 bg-amber-50/80 p-6 shadow-sm">
+          <section className="rounded-3xl border border-blue-100 bg-blue-50/80 p-6 shadow-sm">
             <label className="block text-3xl font-bold mb-4 text-slate-950">Top Priority</label>
             <EditableField
               value={organizationInfo.rallyCry}

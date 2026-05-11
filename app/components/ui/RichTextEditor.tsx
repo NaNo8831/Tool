@@ -17,6 +17,7 @@ interface RichTextEditorProps {
   editorClassName?: string;
   minHeightClassName?: string;
   ariaLabel?: string;
+  editingMode?: "manual" | "always";
   onEditingChange?: (isEditing: boolean) => void;
 }
 
@@ -438,11 +439,13 @@ export function RichTextEditor({
   editorClassName = "",
   minHeightClassName = "min-h-[140px]",
   ariaLabel = "Rich text editor",
+  editingMode = "manual",
   onEditingChange,
 }: RichTextEditorProps) {
   const documentValue = useMemo(() => normalizeRichTextValue(value), [value]);
+  const isAlwaysEditing = editingMode === "always";
   const [draftDocument, setDraftDocument] = useState(documentValue);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(isAlwaysEditing);
   const [hasDraftContent, setHasDraftContent] = useState(
     getPlainText(documentValue).length > 0,
   );
@@ -486,9 +489,24 @@ export function RichTextEditor({
   const readCurrentDraft = (nextColumns = draftDocument.columns) =>
     serializeEditors(editorRefs.current, nextColumns);
 
-  const refreshDraftContentState = () => {
+  const updateDraftDocument = (nextDocument: RichTextDocument) => {
+    setDraftDocument(nextDocument);
+    setHasDraftContent(getPlainText(nextDocument).length > 0);
+    if (isAlwaysEditing) {
+      onChange(nextDocument);
+    }
+  };
+
+  const publishCurrentDraft = () => {
     const nextDocument = readCurrentDraft();
     setHasDraftContent(getPlainText(nextDocument).length > 0);
+    if (isAlwaysEditing) {
+      onChange(nextDocument);
+    }
+  };
+
+  const refreshDraftContentState = () => {
+    publishCurrentDraft();
   };
 
   const startEditing = () => {
@@ -502,8 +520,7 @@ export function RichTextEditor({
 
   const saveEditing = () => {
     const nextDocument = readCurrentDraft();
-    setDraftDocument(nextDocument);
-    setHasDraftContent(getPlainText(nextDocument).length > 0);
+    updateDraftDocument(nextDocument);
     setIsEditing(false);
     setFormattingState(emptyFormattingState);
     onEditingChange?.(false);
@@ -535,7 +552,7 @@ export function RichTextEditor({
     focusActiveEditor();
     document.execCommand("styleWithCSS", false, "false");
     document.execCommand(command);
-    refreshDraftContentState();
+    publishCurrentDraft();
     updateFormattingState();
   };
 
@@ -556,14 +573,13 @@ export function RichTextEditor({
       activeEditorIndexRef.current,
       columns - 1,
     );
-    setDraftDocument(nextDocument);
-    setHasDraftContent(getPlainText(nextDocument).length > 0);
+    updateDraftDocument(nextDocument);
   };
 
   const toolbarButtonClass = (active: boolean, extraClassName = "") =>
     `rich-text-toolbar-button ${active ? "rich-text-toolbar-button-active" : ""} ${extraClassName}`;
 
-  if (!isEditing) {
+  if (!isEditing && !isAlwaysEditing) {
     return (
       <div
         className={`rounded-2xl border border-slate-200 bg-white/80 ${className}`}
@@ -593,7 +609,45 @@ export function RichTextEditor({
       onMouseDown={(event) => event.stopPropagation()}
       onDragStart={(event) => event.stopPropagation()}
     >
-      <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 px-3 py-2 text-sm text-slate-700">
+      <div className="relative">
+        {!hasDraftContent ? (
+          <div className="pointer-events-none absolute left-4 top-3 text-slate-400">
+            {placeholder}
+          </div>
+        ) : null}
+        <div
+          className={`rich-text-column-grid rich-text-column-grid-${draftDocument.columns}`}
+        >
+          {Array.from({ length: draftDocument.columns }, (_, index) => (
+            <div
+              key={index}
+              ref={(node) => {
+                editorRefs.current[index] = node;
+              }}
+              contentEditable
+              suppressContentEditableWarning
+              role="textbox"
+              aria-label={
+                draftDocument.columns === 1
+                  ? ariaLabel
+                  : `${ariaLabel} column ${index + 1}`
+              }
+              aria-multiline="true"
+              data-placeholder={placeholder}
+              onFocus={() => {
+                activeEditorIndexRef.current = index;
+                updateFormattingState();
+              }}
+              onKeyUp={updateFormattingState}
+              onMouseUp={updateFormattingState}
+              onInput={refreshDraftContentState}
+              className={`rich-text-editor rich-text-content rich-text-column-pane ${minHeightClassName} px-4 py-3 text-slate-900 outline-none ${editorClassName}`}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1 border-t border-slate-200 px-3 py-2 text-sm text-slate-700">
         <button
           type="button"
           onMouseDown={(event) => event.preventDefault()}
@@ -666,60 +720,24 @@ export function RichTextEditor({
         </div>
       </div>
 
-      <div className="relative">
-        {!hasDraftContent ? (
-          <div className="pointer-events-none absolute left-4 top-3 text-slate-400">
-            {placeholder}
-          </div>
-        ) : null}
-        <div
-          className={`rich-text-column-grid rich-text-column-grid-${draftDocument.columns}`}
-        >
-          {Array.from({ length: draftDocument.columns }, (_, index) => (
-            <div
-              key={index}
-              ref={(node) => {
-                editorRefs.current[index] = node;
-              }}
-              contentEditable
-              suppressContentEditableWarning
-              role="textbox"
-              aria-label={
-                draftDocument.columns === 1
-                  ? ariaLabel
-                  : `${ariaLabel} column ${index + 1}`
-              }
-              aria-multiline="true"
-              data-placeholder={placeholder}
-              onFocus={() => {
-                activeEditorIndexRef.current = index;
-                updateFormattingState();
-              }}
-              onKeyUp={updateFormattingState}
-              onMouseUp={updateFormattingState}
-              onInput={refreshDraftContentState}
-              className={`rich-text-editor rich-text-content rich-text-column-pane ${minHeightClassName} px-4 py-3 text-slate-900 outline-none ${editorClassName}`}
-            />
-          ))}
+      {!isAlwaysEditing ? (
+        <div className="flex justify-end gap-2 border-t border-slate-200 px-3 py-2">
+          <button
+            type="button"
+            onClick={saveEditing}
+            className="rounded-lg bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={cancelEditing}
+            className="rounded-lg bg-slate-500 px-3 py-1 text-sm font-medium text-white hover:bg-slate-600"
+          >
+            Cancel
+          </button>
         </div>
-      </div>
-
-      <div className="flex justify-end gap-2 border-t border-slate-200 px-3 py-2">
-        <button
-          type="button"
-          onClick={saveEditing}
-          className="rounded-lg bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700"
-        >
-          Save
-        </button>
-        <button
-          type="button"
-          onClick={cancelEditing}
-          className="rounded-lg bg-slate-500 px-3 py-1 text-sm font-medium text-white hover:bg-slate-600"
-        >
-          Cancel
-        </button>
-      </div>
+      ) : null}
     </div>
   );
 }

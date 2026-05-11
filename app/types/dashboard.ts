@@ -9,6 +9,12 @@ export interface OrganizationInfo {
   howSucceed: RichTextValue;
 }
 
+export interface StandardOperatingObjective {
+  id: number;
+  title: string;
+  description: RichTextValue;
+}
+
 export interface MeetingItem {
   id: number;
   text: string;

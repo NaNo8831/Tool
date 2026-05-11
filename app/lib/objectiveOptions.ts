@@ -1,5 +1,5 @@
 import type { Objective, TaskStatus } from '@/app/types/objective';
-import type { MeetingSectionKey, OrganizationInfo } from '@/app/types/dashboard';
+import type { MeetingSectionKey, OrganizationInfo, StandardOperatingObjective } from '@/app/types/dashboard';
 
 export const defaultOrganizationInfo: OrganizationInfo = {
   whyExist: 'To help people encounter Jesus and grow in faith.',
@@ -12,6 +12,29 @@ export const defaultOrganizationInfo: OrganizationInfo = {
 export const defaultDashboardTitle = 'Meeting Tool by LyArk';
 
 export const defaultMeetingSectionOrder: MeetingSectionKey[] = ['agenda', 'topic', 'decision', 'cascade'];
+
+export const defaultStandardOperatingObjectives: StandardOperatingObjective[] = [
+  {
+    id: 1,
+    title: 'Identify',
+    description: 'Name the recurring work or gap tied to the top priority.'
+  },
+  {
+    id: 2,
+    title: 'Document',
+    description: 'Capture the simplest repeatable standard for the team.'
+  },
+  {
+    id: 3,
+    title: 'Assign',
+    description: 'Clarify the owner and where follow-up actions live.'
+  },
+  {
+    id: 4,
+    title: 'Review',
+    description: 'Inspect adoption and update the SOP when reality changes.'
+  }
+];
 
 export const taskStatusOptions: TaskStatus[] = ['planning', 'in-progress', 'waiting', 'completed'];
 
