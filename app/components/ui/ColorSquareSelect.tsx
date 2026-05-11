@@ -46,7 +46,7 @@ export function ColorSquareSelect({ value, onChange, ariaLabel }: ColorSquareSel
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
-        className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+        className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white shadow-sm transition hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
         aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
@@ -61,7 +61,7 @@ export function ColorSquareSelect({ value, onChange, ariaLabel }: ColorSquareSel
         <div
           role="listbox"
           aria-label={ariaLabel}
-          className="absolute right-0 top-10 z-30 grid grid-cols-5 gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+          className="absolute right-0 top-full z-30 mt-2 flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
         >
           {objectiveColorOptions.map((option) => {
             const isSelected = option.value === selectedOption.value;
@@ -77,7 +77,7 @@ export function ColorSquareSelect({ value, onChange, ariaLabel }: ColorSquareSel
                   onChange(option.value);
                   setIsOpen(false);
                 }}
-                className={`flex h-7 w-7 items-center justify-center rounded-md border bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 ${isSelected ? 'border-slate-500 ring-2 ring-slate-300' : 'border-slate-200'}`}
+                className={`flex h-8 w-8 items-center justify-center rounded-md border bg-white transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-300 ${isSelected ? 'border-slate-400 ring-1 ring-slate-200' : 'border-slate-200'}`}
               >
                 <span
                   className={`h-4 w-4 rounded-sm ${option.swatchClass}`}
