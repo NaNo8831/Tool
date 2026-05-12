@@ -112,13 +112,7 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
     subtaskCompleted
   });
 
-  const handleUpdate = (updates: Partial<Task>, activity?: TaskActivityInput) => {
-    onUpdate({
-      ...updates,
-      ...(activity
-        ? { activityHistory: [createActivity(activity), ...activityHistory] }
-        : {})
-    });
+  const markSaving = () => {
     setSaveStatus('saving');
 
     if (saveStatusTimeoutRef.current) {
@@ -128,6 +122,16 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
     saveStatusTimeoutRef.current = setTimeout(() => {
       setSaveStatus('saved');
     }, 500);
+  };
+
+  const handleUpdate = (updates: Partial<Task>, activity?: TaskActivityInput) => {
+    onUpdate({
+      ...updates,
+      ...(activity
+        ? { activityHistory: [createActivity(activity), ...activityHistory] }
+        : {})
+    });
+    markSaving();
   };
 
   const updateSubtasks = (updatedSubtasks: Subtask[], activity?: TaskActivityInput) => {
@@ -252,15 +256,27 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
     handleUpdate({ assignedTo: draftAssignedTo }, { message: `Assignee changed to ${draftAssignedTo || 'Unassigned'}` });
   };
 
-  const updateDueDate = (dueDate: string) => {
+  const updateDueDateDraft = (dueDate: string) => {
     setDraftDueDate(dueDate);
-    if (dueDate === lastActivityValuesRef.current.dueDate) {
-      handleUpdate({ dueDate });
-      return;
-    }
+    handleUpdate({ dueDate });
+  };
 
-    lastActivityValuesRef.current.dueDate = dueDate;
-    handleUpdate({ dueDate }, { message: `Due date changed to ${dueDate || 'No due date'}` });
+  const commitDueDateActivity = () => {
+    if (draftDueDate === lastActivityValuesRef.current.dueDate) return;
+
+    const activityMessage = `Due date changed to ${draftDueDate || 'No due date'}`;
+    lastActivityValuesRef.current.dueDate = draftDueDate;
+    onUpdate({
+      dueDate: draftDueDate,
+      activityHistory: [
+        createActivity({
+          message: activityMessage,
+          type: 'due-date-changed'
+        }),
+        ...activityHistory.filter((activity) => activity.message !== activityMessage)
+      ]
+    });
+    markSaving();
   };
 
   const updateStatus = (status: TaskStatus) => {
@@ -501,7 +517,14 @@ export function TaskDetailsModal({ task, objectiveTitle, onClose, onDelete, onUp
               <input
                 type="date"
                 value={draftDueDate}
-                onChange={(event) => updateDueDate(event.target.value)}
+                onChange={(event) => updateDueDateDraft(event.target.value)}
+                onBlur={commitDueDateActivity}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    commitDueDateActivity();
+                  }
+                }}
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900"
               />
             </label>

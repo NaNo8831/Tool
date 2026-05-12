@@ -16,7 +16,7 @@ export interface TaskActivity {
   id: number;
   message: string;
   createdAt: string;
-  type?: 'subtask-completed' | 'subtask-deleted';
+  type?: 'subtask-completed' | 'subtask-deleted' | 'due-date-changed';
   subtaskId?: number;
   subtaskTitle?: string;
   subtaskCompleted?: boolean;
