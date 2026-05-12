@@ -14,6 +14,8 @@ export interface RichTextParagraphBlock {
 
 export interface RichTextListItem {
   children: RichTextInline[];
+  nestedBlocks?: RichTextListBlock[];
+  /** @deprecated Migrated from PR #25 flat list levels into nestedBlocks. */
   level?: number;
 }
 

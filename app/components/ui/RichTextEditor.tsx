@@ -7,13 +7,13 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
-  type ReactNode,
 } from "react";
 import type {
   RichTextBlock,
   RichTextColumns,
   RichTextDocument,
   RichTextInline,
+  RichTextListBlock,
   RichTextListItem,
   RichTextValue,
 } from "@/app/types/richText";
@@ -89,6 +89,85 @@ const normalizeInlines = (inlines: unknown): RichTextInline[] => {
   );
 };
 
+const normalizeNestedListBlocks = (blocks: unknown): RichTextListBlock[] =>
+  normalizeBlocks(blocks).filter(
+    (block): block is RichTextListBlock =>
+      block.type === "bulletList" || block.type === "numberedList",
+  );
+
+const nestLeveledListItems = (
+  items: RichTextListItem[],
+  listType: RichTextListBlock["type"],
+): RichTextListItem[] => {
+  const roots: RichTextListItem[] = [];
+  const stack: RichTextListItem[] = [];
+
+  items.forEach((item) => {
+    const level = Math.max(0, item.level ?? 0);
+    const normalizedItem: RichTextListItem = {
+      children: item.children,
+      ...(item.nestedBlocks ? { nestedBlocks: item.nestedBlocks } : {}),
+    };
+
+    if (level === 0 || stack.length === 0) {
+      roots.push(normalizedItem);
+      stack[0] = normalizedItem;
+      stack.length = 1;
+      return;
+    }
+
+    const parent = stack[Math.min(level, stack.length) - 1];
+    const nestedBlocks = parent.nestedBlocks ?? [];
+    let nestedList = nestedBlocks[nestedBlocks.length - 1];
+
+    if (!nestedList || nestedList.type !== listType) {
+      nestedList = { type: listType, items: [] };
+      parent.nestedBlocks = [...nestedBlocks, nestedList];
+    }
+
+    nestedList.items.push(normalizedItem);
+    stack[level] = normalizedItem;
+    stack.length = level + 1;
+  });
+
+  return roots.length > 0 ? roots : [{ children: [{ text: "" }] }];
+};
+
+const normalizeListItems = (
+  items: unknown,
+  listType: RichTextListBlock["type"],
+): RichTextListItem[] => {
+  if (!Array.isArray(items)) return [{ children: [{ text: "" }] }];
+
+  const normalizedItems = items.map((item): RichTextListItem => {
+    if (Array.isArray(item)) return { children: normalizeInlines(item) };
+
+    if (typeof item !== "object" || item === null) {
+      return { children: [{ text: "" }] };
+    }
+
+    const listItem = item as Partial<RichTextListItem>;
+    const rawLevel = Number(listItem.level ?? 0);
+    const level = Number.isFinite(rawLevel)
+      ? Math.max(0, Math.floor(rawLevel))
+      : 0;
+    const nestedBlocks = normalizeNestedListBlocks(listItem.nestedBlocks);
+
+    return {
+      children: normalizeInlines(listItem.children),
+      ...(nestedBlocks.length > 0 ? { nestedBlocks } : {}),
+      ...(level > 0 ? { level } : {}),
+    };
+  });
+
+  const safeItems =
+    normalizedItems.length > 0 ? normalizedItems : [{ children: [{ text: "" }] }];
+
+  return safeItems.some((item) => (item.level ?? 0) > 0)
+    ? nestLeveledListItems(safeItems, listType)
+    : safeItems;
+};
+
 const normalizeBlocks = (blocks: unknown): RichTextBlock[] => {
   if (!Array.isArray(blocks)) return emptyBlocks();
 
@@ -100,32 +179,9 @@ const normalizeBlocks = (blocks: unknown): RichTextBlock[] => {
     const candidate = block as Partial<RichTextBlock>;
 
     if (candidate.type === "bulletList" || candidate.type === "numberedList") {
-      const items = Array.isArray(candidate.items)
-        ? candidate.items.map((item) => {
-            if (Array.isArray(item)) {
-              return { children: normalizeInlines(item), level: 0 };
-            }
-
-            if (typeof item !== "object" || item === null) {
-              return { children: [{ text: "" }], level: 0 };
-            }
-
-            const listItem = item as Partial<RichTextListItem>;
-            const rawLevel = Number(listItem.level ?? 0);
-
-            return {
-              children: normalizeInlines(listItem.children),
-              level: Number.isFinite(rawLevel)
-                ? Math.max(0, Math.floor(rawLevel))
-                : 0,
-            };
-          })
-        : [{ children: [{ text: "" }], level: 0 }];
-
       return {
         type: candidate.type,
-        items:
-          items.length > 0 ? items : [{ children: [{ text: "" }], level: 0 }],
+        items: normalizeListItems(candidate.items, candidate.type),
       };
     }
 
@@ -205,16 +261,22 @@ export const normalizeRichTextValue = (
   };
 };
 
-const getBlocksPlainText = (blocks: RichTextBlock[]) =>
+const getListItemPlainText = (item: RichTextListItem): string =>
+  [
+    item.children.map((child) => child.text).join(""),
+    ...(item.nestedBlocks ?? []).map((block) => getBlocksPlainText([block])),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+const getBlocksPlainText = (blocks: RichTextBlock[]): string =>
   blocks
     .map((block) => {
       if (block.type === "paragraph") {
         return block.children.map((child) => child.text).join("");
       }
 
-      return block.items
-        .map((item) => item.children.map((child) => child.text).join(""))
-        .join("\n");
+      return block.items.map(getListItemPlainText).join("\n");
     })
     .join("\n");
 
@@ -260,29 +322,36 @@ const readBlockInlines = (node: Node): RichTextInline[] =>
 const getDirectListItemInlines = (listItem: HTMLElement): RichTextInline[] => {
   const clone = listItem.cloneNode(true) as HTMLElement;
   clone
-    .querySelectorAll("ul, ol")
+    .querySelectorAll(":scope > ul, :scope > ol")
     .forEach((nestedList) => nestedList.remove());
   return readBlockInlines(clone);
 };
 
-const readListItems = (list: HTMLElement, level = 0): RichTextListItem[] =>
-  Array.from(list.children)
+const readListBlock = (list: HTMLElement): RichTextListBlock => {
+  const tagName = list.tagName.toLowerCase();
+  const items = Array.from(list.children)
     .filter((child): child is HTMLElement =>
       child instanceof HTMLElement && child.tagName.toLowerCase() === "li",
     )
-    .flatMap((listItem) => {
-      const nestedItems = Array.from(listItem.children)
+    .map((listItem): RichTextListItem => {
+      const nestedBlocks = Array.from(listItem.children)
         .filter((child): child is HTMLElement =>
           child instanceof HTMLElement &&
             ["ul", "ol"].includes(child.tagName.toLowerCase()),
         )
-        .flatMap((nestedList) => readListItems(nestedList, level + 1));
+        .map(readListBlock);
 
-      return [
-        { children: getDirectListItemInlines(listItem), level },
-        ...nestedItems,
-      ];
+      return {
+        children: getDirectListItemInlines(listItem),
+        ...(nestedBlocks.length > 0 ? { nestedBlocks } : {}),
+      };
     });
+
+  return {
+    type: tagName === "ol" ? "numberedList" : "bulletList",
+    items: items.length > 0 ? items : [{ children: [{ text: "" }] }],
+  };
+};
 
 const serializeColumnContent = (editor: HTMLElement): RichTextBlock[] => {
   const blocks: RichTextBlock[] = [];
@@ -305,13 +374,7 @@ const serializeColumnContent = (editor: HTMLElement): RichTextBlock[] => {
 
     const tagName = node.tagName.toLowerCase();
     if (["ul", "ol"].includes(tagName)) {
-      const items = readListItems(node);
-
-      blocks.push({
-        type: tagName === "ul" ? "bulletList" : "numberedList",
-        items:
-          items.length > 0 ? items : [{ children: [{ text: "" }], level: 0 }],
-      });
+      blocks.push(readListBlock(node));
       return;
     }
 
@@ -320,14 +383,7 @@ const serializeColumnContent = (editor: HTMLElement): RichTextBlock[] => {
     );
 
     if (listChild instanceof HTMLElement) {
-      const listTagName = listChild.tagName.toLowerCase();
-      const items = readListItems(listChild);
-
-      blocks.push({
-        type: listTagName === "ul" ? "bulletList" : "numberedList",
-        items:
-          items.length > 0 ? items : [{ children: [{ text: "" }], level: 0 }],
-      });
+      blocks.push(readListBlock(listChild));
       return;
     }
 
@@ -372,54 +428,23 @@ const appendInlines = (element: HTMLElement, inlines: RichTextInline[]) => {
   element.append(...inlineNodes);
 };
 
-const appendListItems = (
-  list: HTMLOListElement | HTMLUListElement,
-  items: RichTextListItem[],
-) => {
-  const listByLevel = new Map<number, HTMLOListElement | HTMLUListElement>([
-    [0, list],
-  ]);
-  const lastListItemByLevel = new Map<number, HTMLLIElement>();
+const createListBlockNode = (block: RichTextListBlock): HTMLElement => {
+  const list = document.createElement(block.type === "bulletList" ? "ul" : "ol");
 
-  items.forEach((item) => {
-    const level = Math.max(0, item.level ?? 0);
-    let parentList = listByLevel.get(level);
-
-    if (!parentList) {
-      const parentItem = lastListItemByLevel.get(level - 1);
-      if (!parentItem) {
-        parentList = list;
-      } else {
-        parentList = document.createElement(list.tagName.toLowerCase()) as
-          | HTMLOListElement
-          | HTMLUListElement;
-        parentItem.append(parentList);
-        listByLevel.set(level, parentList);
-      }
-    }
-
+  block.items.forEach((item) => {
     const listItem = document.createElement("li");
     appendInlines(listItem, item.children);
-    parentList.append(listItem);
-    lastListItemByLevel.set(level, listItem);
-
-    Array.from(listByLevel.keys())
-      .filter((storedLevel) => storedLevel > level)
-      .forEach((storedLevel) => {
-        listByLevel.delete(storedLevel);
-        lastListItemByLevel.delete(storedLevel);
-      });
+    (item.nestedBlocks ?? []).forEach((nestedBlock) => {
+      listItem.append(createListBlockNode(nestedBlock));
+    });
+    list.append(listItem);
   });
+
+  return list;
 };
 
 const createBlockNode = (block: RichTextBlock): HTMLElement => {
-  if (block.type !== "paragraph") {
-    const list = document.createElement(
-      block.type === "bulletList" ? "ul" : "ol",
-    );
-    appendListItems(list, block.items);
-    return list;
-  }
+  if (block.type !== "paragraph") return createListBlockNode(block);
 
   const paragraph = document.createElement("p");
   appendInlines(paragraph, block.children);
@@ -438,55 +463,27 @@ const renderInline = (inline: RichTextInline, index: number) => {
   return <span key={index}>{content}</span>;
 };
 
-const renderListItems = (
-  items: RichTextListItem[],
-  listType: "bulletList" | "numberedList",
-  level = 0,
-  startIndex = 0,
-): { nodes: ReactNode[]; nextIndex: number } => {
-  const nodes: ReactNode[] = [];
-  let index = startIndex;
+const renderListBlock = (block: RichTextListBlock, key?: number) => {
+  const ListTag = block.type === "bulletList" ? "ul" : "ol";
 
-  while (index < items.length) {
-    const item = items[index];
-    const itemLevel = item.level ?? 0;
-
-    if (itemLevel < level) break;
-    if (itemLevel > level) {
-      index += 1;
-      continue;
-    }
-
-    index += 1;
-    const nested = renderListItems(items, listType, level + 1, index);
-    index = nested.nextIndex;
-    const NestedList = listType === "bulletList" ? "ul" : "ol";
-
-    nodes.push(
-      <li key={`${level}-${index}-${nodes.length}`}>
-        {item.children.map(renderInline)}
-        {nested.nodes.length > 0 ? (
-          <NestedList>{nested.nodes}</NestedList>
-        ) : null}
-      </li>,
-    );
-  }
-
-  return { nodes, nextIndex: index };
+  return (
+    <ListTag key={key}>
+      {block.items.map((item, itemIndex) => (
+        <li key={itemIndex}>
+          {item.children.map(renderInline)}
+          {item.nestedBlocks?.map((nestedBlock, nestedIndex) =>
+            renderListBlock(nestedBlock, nestedIndex),
+          )}
+        </li>
+      ))}
+    </ListTag>
+  );
 };
 
 const renderBlocks = (blocks: RichTextBlock[]) =>
   blocks.map((block, blockIndex) => {
-    if (block.type === "bulletList") {
-      return (
-        <ul key={blockIndex}>{renderListItems(block.items, block.type).nodes}</ul>
-      );
-    }
-
-    if (block.type === "numberedList") {
-      return (
-        <ol key={blockIndex}>{renderListItems(block.items, block.type).nodes}</ol>
-      );
+    if (block.type === "bulletList" || block.type === "numberedList") {
+      return renderListBlock(block, blockIndex);
     }
 
     if (block.type === "paragraph") {
