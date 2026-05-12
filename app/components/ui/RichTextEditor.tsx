@@ -1,11 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import type {
   RichTextBlock,
   RichTextColumns,
   RichTextDocument,
   RichTextInline,
+  RichTextListBlock,
+  RichTextListItem,
   RichTextValue,
 } from "@/app/types/richText";
 
@@ -80,6 +89,85 @@ const normalizeInlines = (inlines: unknown): RichTextInline[] => {
   );
 };
 
+const normalizeNestedListBlocks = (blocks: unknown): RichTextListBlock[] =>
+  normalizeBlocks(blocks).filter(
+    (block): block is RichTextListBlock =>
+      block.type === "bulletList" || block.type === "numberedList",
+  );
+
+const nestLeveledListItems = (
+  items: RichTextListItem[],
+  listType: RichTextListBlock["type"],
+): RichTextListItem[] => {
+  const roots: RichTextListItem[] = [];
+  const stack: RichTextListItem[] = [];
+
+  items.forEach((item) => {
+    const level = Math.max(0, item.level ?? 0);
+    const normalizedItem: RichTextListItem = {
+      children: item.children,
+      ...(item.nestedBlocks ? { nestedBlocks: item.nestedBlocks } : {}),
+    };
+
+    if (level === 0 || stack.length === 0) {
+      roots.push(normalizedItem);
+      stack[0] = normalizedItem;
+      stack.length = 1;
+      return;
+    }
+
+    const parent = stack[Math.min(level, stack.length) - 1];
+    const nestedBlocks = parent.nestedBlocks ?? [];
+    let nestedList = nestedBlocks[nestedBlocks.length - 1];
+
+    if (!nestedList || nestedList.type !== listType) {
+      nestedList = { type: listType, items: [] };
+      parent.nestedBlocks = [...nestedBlocks, nestedList];
+    }
+
+    nestedList.items.push(normalizedItem);
+    stack[level] = normalizedItem;
+    stack.length = level + 1;
+  });
+
+  return roots.length > 0 ? roots : [{ children: [{ text: "" }] }];
+};
+
+const normalizeListItems = (
+  items: unknown,
+  listType: RichTextListBlock["type"],
+): RichTextListItem[] => {
+  if (!Array.isArray(items)) return [{ children: [{ text: "" }] }];
+
+  const normalizedItems = items.map((item): RichTextListItem => {
+    if (Array.isArray(item)) return { children: normalizeInlines(item) };
+
+    if (typeof item !== "object" || item === null) {
+      return { children: [{ text: "" }] };
+    }
+
+    const listItem = item as Partial<RichTextListItem>;
+    const rawLevel = Number(listItem.level ?? 0);
+    const level = Number.isFinite(rawLevel)
+      ? Math.max(0, Math.floor(rawLevel))
+      : 0;
+    const nestedBlocks = normalizeNestedListBlocks(listItem.nestedBlocks);
+
+    return {
+      children: normalizeInlines(listItem.children),
+      ...(nestedBlocks.length > 0 ? { nestedBlocks } : {}),
+      ...(level > 0 ? { level } : {}),
+    };
+  });
+
+  const safeItems =
+    normalizedItems.length > 0 ? normalizedItems : [{ children: [{ text: "" }] }];
+
+  return safeItems.some((item) => (item.level ?? 0) > 0)
+    ? nestLeveledListItems(safeItems, listType)
+    : safeItems;
+};
+
 const normalizeBlocks = (blocks: unknown): RichTextBlock[] => {
   if (!Array.isArray(blocks)) return emptyBlocks();
 
@@ -91,13 +179,9 @@ const normalizeBlocks = (blocks: unknown): RichTextBlock[] => {
     const candidate = block as Partial<RichTextBlock>;
 
     if (candidate.type === "bulletList" || candidate.type === "numberedList") {
-      const items = Array.isArray(candidate.items)
-        ? candidate.items.map((item) => normalizeInlines(item))
-        : [[{ text: "" }]];
-
       return {
         type: candidate.type,
-        items: items.length > 0 ? items : [[{ text: "" }]],
+        items: normalizeListItems(candidate.items, candidate.type),
       };
     }
 
@@ -177,16 +261,22 @@ export const normalizeRichTextValue = (
   };
 };
 
-const getBlocksPlainText = (blocks: RichTextBlock[]) =>
+const getListItemPlainText = (item: RichTextListItem): string =>
+  [
+    item.children.map((child) => child.text).join(""),
+    ...(item.nestedBlocks ?? []).map((block) => getBlocksPlainText([block])),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+const getBlocksPlainText = (blocks: RichTextBlock[]): string =>
   blocks
     .map((block) => {
       if (block.type === "paragraph") {
         return block.children.map((child) => child.text).join("");
       }
 
-      return block.items
-        .map((item) => item.map((child) => child.text).join(""))
-        .join("\n");
+      return block.items.map(getListItemPlainText).join("\n");
     })
     .join("\n");
 
@@ -229,6 +319,58 @@ const readBlockInlines = (node: Node): RichTextInline[] =>
     })),
   );
 
+const getDirectListItemInlines = (listItem: HTMLElement): RichTextInline[] => {
+  const clone = listItem.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll("ul, ol").forEach((nestedList) => {
+    nestedList.remove();
+  });
+  return readBlockInlines(clone);
+};
+
+const getListItemNestedLists = (listItem: HTMLElement): HTMLElement[] =>
+  Array.from(listItem.querySelectorAll("ul, ol")).filter(
+    (nestedList): nestedList is HTMLElement =>
+      nestedList instanceof HTMLElement && nestedList.closest("li") === listItem,
+  );
+
+const appendNestedListBlock = (
+  item: RichTextListItem,
+  nestedBlock: RichTextListBlock,
+) => {
+  item.nestedBlocks = [...(item.nestedBlocks ?? []), nestedBlock];
+};
+
+const readListBlock = (list: HTMLElement): RichTextListBlock => {
+  const tagName = list.tagName.toLowerCase();
+  const items: RichTextListItem[] = [];
+
+  Array.from(list.children).forEach((child) => {
+    if (!(child instanceof HTMLElement)) return;
+
+    const childTagName = child.tagName.toLowerCase();
+
+    if (childTagName === "li") {
+      const nestedBlocks = getListItemNestedLists(child).map(readListBlock);
+      items.push({
+        children: getDirectListItemInlines(child),
+        ...(nestedBlocks.length > 0 ? { nestedBlocks } : {}),
+      });
+      return;
+    }
+
+    if (["ul", "ol"].includes(childTagName)) {
+      const previousItem = items.at(-1) ?? { children: [{ text: "" }] };
+      if (items.length === 0) items.push(previousItem);
+      appendNestedListBlock(previousItem, readListBlock(child));
+    }
+  });
+
+  return {
+    type: tagName === "ol" ? "numberedList" : "bulletList",
+    items: items.length > 0 ? items : [{ children: [{ text: "" }] }],
+  };
+};
+
 const serializeColumnContent = (editor: HTMLElement): RichTextBlock[] => {
   const blocks: RichTextBlock[] = [];
 
@@ -250,14 +392,7 @@ const serializeColumnContent = (editor: HTMLElement): RichTextBlock[] => {
 
     const tagName = node.tagName.toLowerCase();
     if (["ul", "ol"].includes(tagName)) {
-      const items = Array.from(node.children)
-        .filter((child) => child.tagName.toLowerCase() === "li")
-        .map((child) => readBlockInlines(child));
-
-      blocks.push({
-        type: tagName === "ul" ? "bulletList" : "numberedList",
-        items: items.length > 0 ? items : [[{ text: "" }]],
-      });
+      blocks.push(readListBlock(node));
       return;
     }
 
@@ -266,15 +401,7 @@ const serializeColumnContent = (editor: HTMLElement): RichTextBlock[] => {
     );
 
     if (listChild instanceof HTMLElement) {
-      const listTagName = listChild.tagName.toLowerCase();
-      const items = Array.from(listChild.children)
-        .filter((child) => child.tagName.toLowerCase() === "li")
-        .map((child) => readBlockInlines(child));
-
-      blocks.push({
-        type: listTagName === "ul" ? "bulletList" : "numberedList",
-        items: items.length > 0 ? items : [[{ text: "" }]],
-      });
+      blocks.push(readListBlock(listChild));
       return;
     }
 
@@ -319,18 +446,23 @@ const appendInlines = (element: HTMLElement, inlines: RichTextInline[]) => {
   element.append(...inlineNodes);
 };
 
-const createBlockNode = (block: RichTextBlock): HTMLElement => {
-  if (block.type !== "paragraph") {
-    const list = document.createElement(
-      block.type === "bulletList" ? "ul" : "ol",
-    );
-    block.items.forEach((item) => {
-      const listItem = document.createElement("li");
-      appendInlines(listItem, item);
-      list.append(listItem);
+const createListBlockNode = (block: RichTextListBlock): HTMLElement => {
+  const list = document.createElement(block.type === "bulletList" ? "ul" : "ol");
+
+  block.items.forEach((item) => {
+    const listItem = document.createElement("li");
+    appendInlines(listItem, item.children);
+    (item.nestedBlocks ?? []).forEach((nestedBlock) => {
+      listItem.append(createListBlockNode(nestedBlock));
     });
-    return list;
-  }
+    list.append(listItem);
+  });
+
+  return list;
+};
+
+const createBlockNode = (block: RichTextBlock): HTMLElement => {
+  if (block.type !== "paragraph") return createListBlockNode(block);
 
   const paragraph = document.createElement("p");
   appendInlines(paragraph, block.children);
@@ -349,26 +481,27 @@ const renderInline = (inline: RichTextInline, index: number) => {
   return <span key={index}>{content}</span>;
 };
 
+const renderListBlock = (block: RichTextListBlock, key?: number) => {
+  const ListTag = block.type === "bulletList" ? "ul" : "ol";
+
+  return (
+    <ListTag key={key}>
+      {block.items.map((item, itemIndex) => (
+        <li key={itemIndex}>
+          {item.children.map(renderInline)}
+          {item.nestedBlocks?.map((nestedBlock, nestedIndex) =>
+            renderListBlock(nestedBlock, nestedIndex),
+          )}
+        </li>
+      ))}
+    </ListTag>
+  );
+};
+
 const renderBlocks = (blocks: RichTextBlock[]) =>
   blocks.map((block, blockIndex) => {
-    if (block.type === "bulletList") {
-      return (
-        <ul key={blockIndex}>
-          {block.items.map((item, itemIndex) => (
-            <li key={itemIndex}>{item.map(renderInline)}</li>
-          ))}
-        </ul>
-      );
-    }
-
-    if (block.type === "numberedList") {
-      return (
-        <ol key={blockIndex}>
-          {block.items.map((item, itemIndex) => (
-            <li key={itemIndex}>{item.map(renderInline)}</li>
-          ))}
-        </ol>
-      );
+    if (block.type === "bulletList" || block.type === "numberedList") {
+      return renderListBlock(block, blockIndex);
     }
 
     if (block.type === "paragraph") {
@@ -401,6 +534,17 @@ const queryCommandState = (command: string) => {
   } catch {
     return false;
   }
+};
+
+const isSelectionInsideListItem = () => {
+  const selection = document.getSelection();
+  const anchorNode = selection?.anchorNode;
+  if (!anchorNode) return false;
+
+  const element =
+    anchorNode instanceof HTMLElement ? anchorNode : anchorNode.parentElement;
+
+  return Boolean(element?.closest("li"));
 };
 
 export function RichTextRenderer({
@@ -556,6 +700,15 @@ export function RichTextEditor({
     updateFormattingState();
   };
 
+  const handleEditorKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab" || !isSelectionInsideListItem()) return;
+
+    event.preventDefault();
+    document.execCommand(event.shiftKey ? "outdent" : "indent");
+    publishCurrentDraft();
+    updateFormattingState();
+  };
+
   const updateColumns = (columns: RichTextColumns) => {
     const currentDocument = readCurrentDraft(draftDocument.columns);
     const currentColumnBlocks = currentDocument.columnBlocks ?? [
@@ -625,140 +778,152 @@ export function RichTextEditor({
   }
 
   return (
-    <div
-      className={`rounded-2xl border border-slate-300 bg-white shadow-sm focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 ${className}`}
-      onMouseDown={(event) => event.stopPropagation()}
-      onDragStart={(event) => event.stopPropagation()}
-    >
-      <div className="relative">
-        {!hasDraftContent ? (
-          <div className="pointer-events-none absolute left-4 top-3 text-slate-400">
-            {placeholder}
+    <>
+      {!isAlwaysEditing ? (
+        <div
+          className="fixed inset-0 z-[60] bg-slate-950/20"
+          aria-hidden="true"
+        />
+      ) : null}
+      <div
+        className={`relative z-[70] rounded-2xl border border-slate-300 bg-white shadow-sm focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 ${className}`}
+        role={!isAlwaysEditing ? "dialog" : undefined}
+        aria-modal={!isAlwaysEditing ? "true" : undefined}
+        aria-label={!isAlwaysEditing ? `Editing ${ariaLabel}` : undefined}
+        onMouseDown={(event) => event.stopPropagation()}
+        onDragStart={(event) => event.stopPropagation()}
+      >
+        <div className="relative">
+          {!hasDraftContent ? (
+            <div className="pointer-events-none absolute left-4 top-3 text-slate-400">
+              {placeholder}
+            </div>
+          ) : null}
+          <div
+            className={`rich-text-column-grid rich-text-column-grid-${draftDocument.columns}`}
+          >
+            {Array.from({ length: draftDocument.columns }, (_, index) => (
+              <div
+                key={index}
+                ref={(node) => {
+                  editorRefs.current[index] = node;
+                }}
+                contentEditable
+                suppressContentEditableWarning
+                role="textbox"
+                aria-label={
+                  draftDocument.columns === 1
+                    ? ariaLabel
+                    : `${ariaLabel} column ${index + 1}`
+                }
+                aria-multiline="true"
+                data-placeholder={placeholder}
+                onFocus={() => {
+                  activeEditorIndexRef.current = index;
+                  updateFormattingState();
+                }}
+                onKeyDown={handleEditorKeyDown}
+                onKeyUp={updateFormattingState}
+                onMouseUp={updateFormattingState}
+                onInput={refreshDraftContentState}
+                className={`rich-text-editor rich-text-content rich-text-column-pane ${minHeightClassName} px-4 py-3 text-slate-900 outline-none ${editorClassName}`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1 border-t border-slate-200 px-3 py-2 text-sm text-slate-700">
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => applyCommand("bold")}
+            className={toolbarButtonClass(formattingState.bold, "font-bold")}
+            aria-label="Bold"
+            aria-pressed={formattingState.bold}
+          >
+            B
+          </button>
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => applyCommand("italic")}
+            className={toolbarButtonClass(formattingState.italic, "italic")}
+            aria-label="Italic"
+            aria-pressed={formattingState.italic}
+          >
+            I
+          </button>
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => applyCommand("underline")}
+            className={toolbarButtonClass(formattingState.underline, "underline")}
+            aria-label="Underline"
+            aria-pressed={formattingState.underline}
+          >
+            U
+          </button>
+          <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => applyCommand("insertUnorderedList")}
+            className={toolbarButtonClass(formattingState.bulletList)}
+            aria-label="Bullet dots"
+            aria-pressed={formattingState.bulletList}
+          >
+            •••
+          </button>
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => applyCommand("insertOrderedList")}
+            className={toolbarButtonClass(formattingState.numberedList)}
+            aria-label="Numbers"
+            aria-pressed={formattingState.numberedList}
+          >
+            1.2.
+          </button>
+          <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
+          <div
+            className="flex items-center gap-1 text-xs font-medium text-slate-500"
+            aria-label="Columns"
+          >
+            <span className="px-1">Columns</span>
+            {[1, 2, 3].map((columns) => (
+              <button
+                key={columns}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => updateColumns(columns as RichTextColumns)}
+                className={toolbarButtonClass(draftDocument.columns === columns)}
+                aria-pressed={draftDocument.columns === columns}
+              >
+                {columns}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {!isAlwaysEditing ? (
+          <div className="flex justify-end gap-2 border-t border-slate-200 px-3 py-2">
+            <button
+              type="button"
+              onClick={saveEditing}
+              className="rounded-lg bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={cancelEditing}
+              className="rounded-lg bg-slate-500 px-3 py-1 text-sm font-medium text-white hover:bg-slate-600"
+            >
+              Cancel
+            </button>
           </div>
         ) : null}
-        <div
-          className={`rich-text-column-grid rich-text-column-grid-${draftDocument.columns}`}
-        >
-          {Array.from({ length: draftDocument.columns }, (_, index) => (
-            <div
-              key={index}
-              ref={(node) => {
-                editorRefs.current[index] = node;
-              }}
-              contentEditable
-              suppressContentEditableWarning
-              role="textbox"
-              aria-label={
-                draftDocument.columns === 1
-                  ? ariaLabel
-                  : `${ariaLabel} column ${index + 1}`
-              }
-              aria-multiline="true"
-              data-placeholder={placeholder}
-              onFocus={() => {
-                activeEditorIndexRef.current = index;
-                updateFormattingState();
-              }}
-              onKeyUp={updateFormattingState}
-              onMouseUp={updateFormattingState}
-              onInput={refreshDraftContentState}
-              className={`rich-text-editor rich-text-content rich-text-column-pane ${minHeightClassName} px-4 py-3 text-slate-900 outline-none ${editorClassName}`}
-            />
-          ))}
-        </div>
       </div>
-
-      <div className="flex flex-wrap items-center gap-1 border-t border-slate-200 px-3 py-2 text-sm text-slate-700">
-        <button
-          type="button"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyCommand("bold")}
-          className={toolbarButtonClass(formattingState.bold, "font-bold")}
-          aria-label="Bold"
-          aria-pressed={formattingState.bold}
-        >
-          B
-        </button>
-        <button
-          type="button"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyCommand("italic")}
-          className={toolbarButtonClass(formattingState.italic, "italic")}
-          aria-label="Italic"
-          aria-pressed={formattingState.italic}
-        >
-          I
-        </button>
-        <button
-          type="button"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyCommand("underline")}
-          className={toolbarButtonClass(formattingState.underline, "underline")}
-          aria-label="Underline"
-          aria-pressed={formattingState.underline}
-        >
-          U
-        </button>
-        <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
-        <button
-          type="button"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyCommand("insertUnorderedList")}
-          className={toolbarButtonClass(formattingState.bulletList)}
-          aria-label="Bullet dots"
-          aria-pressed={formattingState.bulletList}
-        >
-          •••
-        </button>
-        <button
-          type="button"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyCommand("insertOrderedList")}
-          className={toolbarButtonClass(formattingState.numberedList)}
-          aria-label="Numbers"
-          aria-pressed={formattingState.numberedList}
-        >
-          1.2.
-        </button>
-        <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
-        <div
-          className="flex items-center gap-1 text-xs font-medium text-slate-500"
-          aria-label="Columns"
-        >
-          <span className="px-1">Columns</span>
-          {[1, 2, 3].map((columns) => (
-            <button
-              key={columns}
-              type="button"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => updateColumns(columns as RichTextColumns)}
-              className={toolbarButtonClass(draftDocument.columns === columns)}
-              aria-pressed={draftDocument.columns === columns}
-            >
-              {columns}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {!isAlwaysEditing ? (
-        <div className="flex justify-end gap-2 border-t border-slate-200 px-3 py-2">
-          <button
-            type="button"
-            onClick={saveEditing}
-            className="rounded-lg bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700"
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={cancelEditing}
-            className="rounded-lg bg-slate-500 px-3 py-1 text-sm font-medium text-white hover:bg-slate-600"
-          >
-            Cancel
-          </button>
-        </div>
-      ) : null}
-    </div>
+    </>
   );
 }

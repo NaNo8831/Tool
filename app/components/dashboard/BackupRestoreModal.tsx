@@ -20,10 +20,18 @@ export function BackupRestoreModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-8 shadow-2xl md:p-10">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="backup-restore-title"
+    >
+      <div
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-8 shadow-2xl md:p-10"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <div className="mb-8 space-y-3">
-          <h2 className="text-4xl font-bold text-slate-950 md:text-5xl">
+          <h2 id="backup-restore-title" className="text-4xl font-bold text-slate-950 md:text-5xl">
             Backup / Restore
           </h2>
           <p className="text-xl text-slate-600">

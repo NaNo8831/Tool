@@ -79,6 +79,7 @@ export function MeetingSection({ section, onDragStart, onDragOver, onDrop }: Mee
                       value={item.text}
                       onSave={(value) => section.updateItem(item.id, value)}
                       placeholder={section.editPlaceholder}
+                      ariaLabel={`${section.title} item`}
                       className="text-slate-800"
                     />
                   </div>
