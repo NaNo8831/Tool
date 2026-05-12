@@ -48,8 +48,8 @@ export const objectiveColorOptions: Array<{
   borderClass: string;
   swatchClass: string;
 }> = [
-  { value: 'dark-green', label: 'Dark Green', borderClass: 'border-emerald-700', swatchClass: 'bg-emerald-700' },
-  { value: 'green', label: 'Green', borderClass: 'border-emerald-600', swatchClass: 'bg-emerald-600' },
+  { value: 'dark-green', label: 'Dark Green', borderClass: 'border-emerald-900', swatchClass: 'bg-emerald-900' },
+  { value: 'green', label: 'Green', borderClass: 'border-green-600', swatchClass: 'bg-green-600' },
   { value: 'yellow', label: 'Yellow', borderClass: 'border-yellow-400', swatchClass: 'bg-yellow-400' },
   { value: 'orange', label: 'Orange', borderClass: 'border-orange-500', swatchClass: 'bg-orange-500' },
   { value: 'red', label: 'Red', borderClass: 'border-red-500', swatchClass: 'bg-red-500' }
