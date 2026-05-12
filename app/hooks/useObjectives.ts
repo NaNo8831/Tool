@@ -212,11 +212,6 @@ export const useObjectives = () => {
     const title = taskTitle.trim();
     const assignee = assignedTo.trim();
     if (!title) return;
-    if (!assignee) {
-      const confirmBlank = window.confirm('You are leaving Assign to blank. Do you want to continue?');
-      if (!confirmBlank) return;
-    }
-
     const newTask: Task = {
       id: Date.now(),
       title,

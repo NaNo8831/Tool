@@ -505,7 +505,7 @@ export default function Home() {
     const isOnlyMeeting = meetings.length <= 1;
     const warningMessage = isOnlyMeeting
       ? "This is the only meeting. Deleting it will reset it to a blank meeting. Continue?"
-      : "Delete this meeting? Agenda Items, Decisions / Actions, and Cascading Messages for this meeting will be removed. Strategic Topics remain available in meeting history where appropriate.";
+      : "Delete this meeting? Agenda Items, Decisions / Actions, and Cascading Communication for this meeting will be removed. Strategic Topics remain available in meeting history where appropriate.";
 
     if (!window.confirm(warningMessage)) return;
 
@@ -736,8 +736,8 @@ export default function Home() {
     },
     cascade: {
       id: "cascade",
-      title: "Cascading Messages",
-      description: "Capture key messages to share across the team.",
+      title: "Cascading Communication",
+      description: "What does the Staff need to know",
       items: activeMeeting.cascadeItems,
       newItem: newCascadeItem,
       setNewItem: setNewCascadeItem,
@@ -746,8 +746,8 @@ export default function Home() {
       updateItem: (itemId, value) =>
         updateMeetingItem("cascadeItems", itemId, value),
       deleteItem: (itemId) => deleteMeetingItem("cascadeItems", itemId),
-      placeholder: "New cascading message",
-      editPlaceholder: "Cascading message",
+      placeholder: "New cascading communication",
+      editPlaceholder: "Cascading communication",
     },
   };
 
@@ -1145,9 +1145,6 @@ export default function Home() {
                 <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
                   Standard Operating Objective
                 </p>
-                <h2 className="mt-1 text-3xl font-bold text-slate-950">
-                  Edit Objective
-                </h2>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <ColorSquareSelect
