@@ -321,31 +321,49 @@ const readBlockInlines = (node: Node): RichTextInline[] =>
 
 const getDirectListItemInlines = (listItem: HTMLElement): RichTextInline[] => {
   const clone = listItem.cloneNode(true) as HTMLElement;
-  clone
-    .querySelectorAll(":scope > ul, :scope > ol")
-    .forEach((nestedList) => nestedList.remove());
+  clone.querySelectorAll("ul, ol").forEach((nestedList) => {
+    nestedList.remove();
+  });
   return readBlockInlines(clone);
+};
+
+const getListItemNestedLists = (listItem: HTMLElement): HTMLElement[] =>
+  Array.from(listItem.querySelectorAll("ul, ol")).filter(
+    (nestedList): nestedList is HTMLElement =>
+      nestedList instanceof HTMLElement && nestedList.closest("li") === listItem,
+  );
+
+const appendNestedListBlock = (
+  item: RichTextListItem,
+  nestedBlock: RichTextListBlock,
+) => {
+  item.nestedBlocks = [...(item.nestedBlocks ?? []), nestedBlock];
 };
 
 const readListBlock = (list: HTMLElement): RichTextListBlock => {
   const tagName = list.tagName.toLowerCase();
-  const items = Array.from(list.children)
-    .filter((child): child is HTMLElement =>
-      child instanceof HTMLElement && child.tagName.toLowerCase() === "li",
-    )
-    .map((listItem): RichTextListItem => {
-      const nestedBlocks = Array.from(listItem.children)
-        .filter((child): child is HTMLElement =>
-          child instanceof HTMLElement &&
-            ["ul", "ol"].includes(child.tagName.toLowerCase()),
-        )
-        .map(readListBlock);
+  const items: RichTextListItem[] = [];
 
-      return {
-        children: getDirectListItemInlines(listItem),
+  Array.from(list.children).forEach((child) => {
+    if (!(child instanceof HTMLElement)) return;
+
+    const childTagName = child.tagName.toLowerCase();
+
+    if (childTagName === "li") {
+      const nestedBlocks = getListItemNestedLists(child).map(readListBlock);
+      items.push({
+        children: getDirectListItemInlines(child),
         ...(nestedBlocks.length > 0 ? { nestedBlocks } : {}),
-      };
-    });
+      });
+      return;
+    }
+
+    if (["ul", "ol"].includes(childTagName)) {
+      const previousItem = items.at(-1) ?? { children: [{ text: "" }] };
+      if (items.length === 0) items.push(previousItem);
+      appendNestedListBlock(previousItem, readListBlock(child));
+    }
+  });
 
   return {
     type: tagName === "ol" ? "numberedList" : "bulletList",
@@ -784,125 +802,125 @@ export function RichTextEditor({
           <div
             className={`rich-text-column-grid rich-text-column-grid-${draftDocument.columns}`}
           >
-          {Array.from({ length: draftDocument.columns }, (_, index) => (
-            <div
-              key={index}
-              ref={(node) => {
-                editorRefs.current[index] = node;
-              }}
-              contentEditable
-              suppressContentEditableWarning
-              role="textbox"
-              aria-label={
-                draftDocument.columns === 1
-                  ? ariaLabel
-                  : `${ariaLabel} column ${index + 1}`
-              }
-              aria-multiline="true"
-              data-placeholder={placeholder}
-              onFocus={() => {
-                activeEditorIndexRef.current = index;
-                updateFormattingState();
-              }}
-              onKeyDown={handleEditorKeyDown}
-              onKeyUp={updateFormattingState}
-              onMouseUp={updateFormattingState}
-              onInput={refreshDraftContentState}
-              className={`rich-text-editor rich-text-content rich-text-column-pane ${minHeightClassName} px-4 py-3 text-slate-900 outline-none ${editorClassName}`}
-            />
+            {Array.from({ length: draftDocument.columns }, (_, index) => (
+              <div
+                key={index}
+                ref={(node) => {
+                  editorRefs.current[index] = node;
+                }}
+                contentEditable
+                suppressContentEditableWarning
+                role="textbox"
+                aria-label={
+                  draftDocument.columns === 1
+                    ? ariaLabel
+                    : `${ariaLabel} column ${index + 1}`
+                }
+                aria-multiline="true"
+                data-placeholder={placeholder}
+                onFocus={() => {
+                  activeEditorIndexRef.current = index;
+                  updateFormattingState();
+                }}
+                onKeyDown={handleEditorKeyDown}
+                onKeyUp={updateFormattingState}
+                onMouseUp={updateFormattingState}
+                onInput={refreshDraftContentState}
+                className={`rich-text-editor rich-text-content rich-text-column-pane ${minHeightClassName} px-4 py-3 text-slate-900 outline-none ${editorClassName}`}
+              />
             ))}
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-1 border-t border-slate-200 px-3 py-2 text-sm text-slate-700">
-        <button
-          type="button"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyCommand("bold")}
-          className={toolbarButtonClass(formattingState.bold, "font-bold")}
-          aria-label="Bold"
-          aria-pressed={formattingState.bold}
-        >
-          B
-        </button>
-        <button
-          type="button"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyCommand("italic")}
-          className={toolbarButtonClass(formattingState.italic, "italic")}
-          aria-label="Italic"
-          aria-pressed={formattingState.italic}
-        >
-          I
-        </button>
-        <button
-          type="button"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyCommand("underline")}
-          className={toolbarButtonClass(formattingState.underline, "underline")}
-          aria-label="Underline"
-          aria-pressed={formattingState.underline}
-        >
-          U
-        </button>
-        <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
-        <button
-          type="button"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyCommand("insertUnorderedList")}
-          className={toolbarButtonClass(formattingState.bulletList)}
-          aria-label="Bullet dots"
-          aria-pressed={formattingState.bulletList}
-        >
-          •••
-        </button>
-        <button
-          type="button"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyCommand("insertOrderedList")}
-          className={toolbarButtonClass(formattingState.numberedList)}
-          aria-label="Numbers"
-          aria-pressed={formattingState.numberedList}
-        >
-          1.2.
-        </button>
-        <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
-        <div
-          className="flex items-center gap-1 text-xs font-medium text-slate-500"
-          aria-label="Columns"
-        >
-          <span className="px-1">Columns</span>
-          {[1, 2, 3].map((columns) => (
-            <button
-              key={columns}
-              type="button"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => updateColumns(columns as RichTextColumns)}
-              className={toolbarButtonClass(draftDocument.columns === columns)}
-              aria-pressed={draftDocument.columns === columns}
-            >
-              {columns}
-            </button>
-          ))}
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => applyCommand("bold")}
+            className={toolbarButtonClass(formattingState.bold, "font-bold")}
+            aria-label="Bold"
+            aria-pressed={formattingState.bold}
+          >
+            B
+          </button>
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => applyCommand("italic")}
+            className={toolbarButtonClass(formattingState.italic, "italic")}
+            aria-label="Italic"
+            aria-pressed={formattingState.italic}
+          >
+            I
+          </button>
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => applyCommand("underline")}
+            className={toolbarButtonClass(formattingState.underline, "underline")}
+            aria-label="Underline"
+            aria-pressed={formattingState.underline}
+          >
+            U
+          </button>
+          <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => applyCommand("insertUnorderedList")}
+            className={toolbarButtonClass(formattingState.bulletList)}
+            aria-label="Bullet dots"
+            aria-pressed={formattingState.bulletList}
+          >
+            •••
+          </button>
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => applyCommand("insertOrderedList")}
+            className={toolbarButtonClass(formattingState.numberedList)}
+            aria-label="Numbers"
+            aria-pressed={formattingState.numberedList}
+          >
+            1.2.
+          </button>
+          <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
+          <div
+            className="flex items-center gap-1 text-xs font-medium text-slate-500"
+            aria-label="Columns"
+          >
+            <span className="px-1">Columns</span>
+            {[1, 2, 3].map((columns) => (
+              <button
+                key={columns}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => updateColumns(columns as RichTextColumns)}
+                className={toolbarButtonClass(draftDocument.columns === columns)}
+                aria-pressed={draftDocument.columns === columns}
+              >
+                {columns}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
         {!isAlwaysEditing ? (
           <div className="flex justify-end gap-2 border-t border-slate-200 px-3 py-2">
-          <button
-            type="button"
-            onClick={saveEditing}
-            className="rounded-lg bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700"
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={cancelEditing}
-            className="rounded-lg bg-slate-500 px-3 py-1 text-sm font-medium text-white hover:bg-slate-600"
-          >
-            Cancel
-          </button>
+            <button
+              type="button"
+              onClick={saveEditing}
+              className="rounded-lg bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={cancelEditing}
+              className="rounded-lg bg-slate-500 px-3 py-1 text-sm font-medium text-white hover:bg-slate-600"
+            >
+              Cancel
+            </button>
           </div>
         ) : null}
       </div>
