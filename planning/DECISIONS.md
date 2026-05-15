@@ -2,6 +2,7 @@
 
 | Date | Decision | Rationale / Notes |
 | --- | --- | --- |
+| 2026-05-15 | Close stale Supabase Foundation PR work in favor of a fresh PR based on the updated `phase-2-cloud` branch. | Keeps Phase 2 cloud work aligned with the current long-running branch and avoids carrying forward drift from older PR context. |
 | 2026-05-13 | Phase 1 remains localStorage-first. | Keeps the live operational beta simple while usability stabilizes. |
 | 2026-05-13 | Deploy through Vercel. | Current production deployment path for the Next.js app. |
 | 2026-05-13 | Keep JSON export/import backup even after cloud persistence is introduced. | Backup/restore protects users and supports migration/recovery. |
