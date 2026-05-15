@@ -1,40 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Meeting Tool
+
+Meeting Tool by LyArk is a lightweight operational leadership meeting tool for structured weekly leadership meetings. The current live beta is a Next.js application deployed on Vercel.
+
+## Current Persistence
+
+The app currently stores workspace data in the browser through `localStorage`. JSON export/import backup remains the supported way to move or restore a workspace, and that backup behavior must be preserved as cloud features are planned.
 
 ## Getting Started
 
-First, run the development server:
+Copy the safe placeholder environment file if you are preparing Phase 2 Supabase work:
+
+```bash
+cp .env.example .env.local
+```
+
+Leave the Supabase values blank unless you are working with a real Supabase project:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+```
+
+Then run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Supabase Foundation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The repo includes a small Supabase browser-client utility at `app/lib/supabase/client.ts` and safe placeholders in `.env.example`. This is foundation work only: it does not add auth UI, login/logout, cloud persistence, local-to-cloud migration, or any change to the current localStorage behavior.
 
-## Learn More
+Required Vercel variables for future Supabase-backed features are documented in `docs/VERCEL_ENVIRONMENT.md`.
 
-To learn more about Next.js, take a look at the following resources:
+## Validation
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+For app-code changes, run:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run lint
+npx tsc --noEmit
+npm run build
+```
 
 ## Deploy on Vercel
 
-The easiest way to deploy this Next.js app is through [Vercel](https://vercel.com/):
-
-1. Connect the GitHub repository in Vercel.
-2. Use Vercel's default Next.js settings for install, build, and output configuration.
-3. Deploy the generated project.
-
-Data currently remains browser-local through `localStorage`. No backend persistence, cloud database, or authentication is required for this deployment phase; a future cloud database phase can add shared persistence when needed.
+The app deploys through Vercel with the default Next.js settings. Current production behavior remains browser-local; future cloud features should be developed against the `phase-2-cloud` branch and should keep JSON export/import backup available.
