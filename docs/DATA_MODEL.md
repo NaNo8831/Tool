@@ -25,3 +25,37 @@ The current app persists workspace data as JSON in browser `localStorage`. Expor
 - How to migrate local workspace data without duplicates or overwrites.
 - How owner/editor/viewer permissions affect entity access and mutation.
 - Whether realtime collaboration is required with the first cloud release.
+
+## Phase 2 Feedback Table
+
+Tester feedback is intentionally lightweight and non-ticket-based. It is stored separately from workspace data so feedback collection does not change the existing `localStorage` workspace behavior.
+
+Supabase migration: `supabase/migrations/20260515000000_create_feedback.sql`.
+
+```sql
+create table if not exists public.feedback (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  user_id uuid null references auth.users(id) on delete set null,
+  user_email text null,
+  type text not null check (type in ('Bug', 'UX Friction', 'Suggestion', 'Confusing Workflow')),
+  severity text not null check (severity in ('Minor', 'Blocking')),
+  note text not null,
+  intent text null,
+  page text null,
+  browser text null,
+  app_version text null,
+  workspace_snapshot jsonb null,
+  metadata_json jsonb null
+);
+
+alter table public.feedback enable row level security;
+
+create policy "Allow tester feedback inserts"
+  on public.feedback
+  for insert
+  to anon, authenticated
+  with check (user_id is null or auth.uid() = user_id);
+```
+
+No admin dashboard, ticket status, assignment, notifications, threaded comments, file upload, or screenshot data is part of this foundation.

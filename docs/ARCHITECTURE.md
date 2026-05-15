@@ -9,6 +9,7 @@
 - Workspace persistence: browser `localStorage`.
 - Backup/restore: JSON export/import workspace backup.
 - Authentication: optional Supabase email/password auth foundation on `phase-2-cloud`.
+- Tester feedback: lightweight Supabase-backed feedback submissions with optional workspace snapshot metadata.
 - Current status: live/deployed operational beta.
 
 ## Current App Areas
@@ -27,8 +28,8 @@
 
 ## Persistence Boundary
 
-Current workspace data is stored in browser `localStorage`, including the Meeting Setup completion flag and setup-backed workspace fields. Backup/export/import is the safety mechanism for moving or restoring workspace data. Supabase Auth session data is separate from workspace records and does not change workspace storage behavior.
+Current workspace data is stored in browser `localStorage`, including the Meeting Setup completion flag and setup-backed workspace fields. Backup/export/import is the safety mechanism for moving or restoring workspace data. Supabase Auth session data and feedback submissions are separate from workspace records and do not change workspace storage behavior.
 
 ## Phase 2 Boundary
 
-Supabase is the Phase 2 platform direction. The current foundation only enables email/password authentication and persisted auth sessions on `phase-2-cloud`; it does not add cloud workspace persistence, a final schema, migration process, realtime model, team sharing, or permission enforcement.
+Supabase is the Phase 2 platform direction. The current foundation enables email/password authentication, persisted auth sessions, and lightweight tester feedback on `phase-2-cloud`; it does not add cloud workspace persistence, a final workspace schema, migration process, realtime model, team sharing, or permission enforcement.

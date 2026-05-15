@@ -5,6 +5,7 @@ import { AuthModal } from "@/app/components/auth/AuthModal";
 import { BackupRestoreModal } from "@/app/components/dashboard/BackupRestoreModal";
 import { MeetingSetupModal } from "@/app/components/dashboard/MeetingSetupModal";
 import { PlaybookDefinitionsModal } from "@/app/components/dashboard/PlaybookDefinitionsModal";
+import { FeedbackWidget } from "@/app/components/feedback/FeedbackWidget";
 import { MeetingSection } from "@/app/components/meeting/MeetingSection";
 import { ObjectiveCard } from "@/app/components/objectives/ObjectiveCard";
 import { TaskDetailsModal } from "@/app/components/objectives/TaskDetailsModal";
@@ -1220,6 +1221,11 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      <FeedbackWidget
+        session={authSession}
+        onCollectWorkspaceSnapshot={getCurrentWorkspaceStorage}
+      />
 
       <AuthModal
         isOpen={showAuthModal}
