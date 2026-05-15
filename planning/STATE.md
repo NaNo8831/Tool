@@ -10,7 +10,7 @@
 - Phase 2 Supabase foundation is being prepared on `phase-2-cloud` without changing current app behavior.
 
 ## Production State
-- The app supports lightweight leadership meeting operations around Playbook Definitions, Top Priority, Defining Objectives, tasks, Standard Operating Objectives, Strategic Topics, meeting sections, and Cascading Communication.
+- The app supports lightweight leadership meeting operations around Meeting Setup / Playbook Definitions, Top Priority, Defining Objectives, tasks, Standard Operating Objectives, Strategic Topics, meeting sections, and Cascading Communication.
 - Tasks follow the workflow `Planning → In Progress → Completed` and include details, descriptions, comments, activity history, and subtasks.
 - RichTextEditor provides lightweight formatting for applicable descriptions/content.
 
@@ -19,8 +19,7 @@
 - Keep `main` stable for production and UX stabilization.
 
 ## Parked Work
-- PR #23 Meeting Setup flow is parked for later and should not be assumed merged unless the current branch contains it.
-- Phase 2 cloud/auth/persistence work is planned for a separate long-running branch such as `phase-2-cloud`.
+- Phase 2 cloud/auth/persistence beyond the Supabase foundation remains parked until schema, permissions, and migration details are resolved.
 
 ## Next Actions
 - Use the planning files as the source of truth before future changes.

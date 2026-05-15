@@ -11,7 +11,7 @@
 - Current status: live/deployed operational beta.
 
 ## Current App Areas
-- Playbook Definitions.
+- Meeting Setup / Playbook Definitions.
 - Top Priority / Thematic Goal.
 - Defining Objectives.
 - Tasks with `Planning → In Progress → Completed` workflow.
