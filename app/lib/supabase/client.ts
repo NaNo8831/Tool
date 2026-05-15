@@ -1,5 +1,3 @@
-const supabasePackageName = "@supabase/supabase-js";
-
 type SupabaseClientFactory = (
   supabaseUrl: string,
   supabaseAnonKey: string,
@@ -21,7 +19,7 @@ export async function createSupabaseBrowserClient() {
     );
   }
 
-  const { createClient } = (await import(supabasePackageName)) as {
+  const { createClient } = (await import("@supabase/supabase-js")) as {
     createClient: SupabaseClientFactory;
   };
 
