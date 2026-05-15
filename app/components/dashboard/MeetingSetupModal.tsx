@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { RichTextEditor } from "@/app/components/ui/RichTextEditor";
 import type { OrganizationInfo } from "@/app/types/dashboard";
 import type { RichTextDocument } from "@/app/types/richText";
@@ -35,17 +35,6 @@ export function MeetingSetupModal({
   const [draftTitle, setDraftTitle] = useState(dashboardTitle);
   const [draftInfo, setDraftInfo] = useState(organizationInfo);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setDraftTitle(dashboardTitle);
-      setDraftInfo(organizationInfo);
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [dashboardTitle, isOpen, organizationInfo]);
-
   if (!isOpen) return null;
 
   const updateDraftInfo = <Field extends keyof OrganizationInfo>(
@@ -67,8 +56,8 @@ export function MeetingSetupModal({
   const editorClasses = "text-base leading-relaxed";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
-      <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl md:p-8">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 px-4 py-4 sm:items-center">
+      <div className="w-full max-w-5xl rounded-3xl bg-white p-6 shadow-2xl md:p-8">
         <div className="mb-8 grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
           <div className="rounded-3xl bg-slate-950 p-6 text-white">
             <p className="text-sm font-semibold uppercase tracking-wide text-blue-200">

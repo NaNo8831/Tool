@@ -265,14 +265,9 @@ export default function Home() {
     hasLoadedMeetingSectionOrder &&
     hasLoadedStrategicTopicItems &&
     hasLoadedStandardOperatingObjectives;
-
-  useEffect(() => {
-    if (!hasLoadedMeetingSetup || hasCompletedMeetingSetup) return;
-
-    const timeoutId = window.setTimeout(() => setShowMeetingSetup(true), 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [hasCompletedMeetingSetup, hasLoadedMeetingSetup]);
+  const shouldShowMeetingSetup =
+    showMeetingSetup ||
+    (hasLoadedDashboardStorage && !hasCompletedMeetingSetup);
 
   useEffect(() => {
     if (!showSettingsMenu) return;
@@ -1293,16 +1288,18 @@ export default function Home() {
         />
       ) : null}
 
-      <MeetingSetupModal
-        isOpen={showMeetingSetup}
-        onClose={() => setShowMeetingSetup(false)}
-        organizationInfo={organizationInfoWithDefaults}
-        onSave={setOrganizationInfo}
-        dashboardTitle={dashboardTitle}
-        onDashboardTitleChange={setDashboardTitle}
-        onComplete={() => setHasCompletedMeetingSetup(true)}
-        requireCompletion={!hasCompletedMeetingSetup}
-      />
+      {shouldShowMeetingSetup ? (
+        <MeetingSetupModal
+          isOpen={shouldShowMeetingSetup}
+          onClose={() => setShowMeetingSetup(false)}
+          organizationInfo={organizationInfoWithDefaults}
+          onSave={setOrganizationInfo}
+          dashboardTitle={dashboardTitle}
+          onDashboardTitleChange={setDashboardTitle}
+          onComplete={() => setHasCompletedMeetingSetup(true)}
+          requireCompletion={!hasCompletedMeetingSetup}
+        />
+      ) : null}
 
       <PlaybookDefinitionsModal
         isOpen={showPlaybookDefinitions}
