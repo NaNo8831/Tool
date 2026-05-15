@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { AuthModal } from "@/app/components/auth/AuthModal";
 import { BackupRestoreModal } from "@/app/components/dashboard/BackupRestoreModal";
 import { MeetingSetupModal } from "@/app/components/dashboard/MeetingSetupModal";
 import { PlaybookDefinitionsModal } from "@/app/components/dashboard/PlaybookDefinitionsModal";
@@ -14,6 +15,7 @@ import {
 } from "@/app/components/ui/RichTextEditor";
 import { useLocalStorage } from "@/app/hooks/useLocalStorage";
 import { useObjectives } from "@/app/hooks/useObjectives";
+import { useSupabaseAuth } from "@/app/hooks/useSupabaseAuth";
 import {
   defaultDashboardTitle,
   defaultMeetingSectionOrder,
@@ -147,6 +149,14 @@ const getLegacyStrategicTopics = (): MeetingItem[] => {
 export default function Home() {
   const initialMeetings = useMemo(() => getInitialMeetings(), []);
   const {
+    session: authSession,
+    isConfigured: isAuthConfigured,
+    isLoading: isAuthLoading,
+    signUp,
+    signIn,
+    signOut,
+  } = useSupabaseAuth();
+  const {
     objectives,
     taskInputs,
     selectedObjective,
@@ -221,6 +231,7 @@ export default function Home() {
   const [showMeetingSetup, setShowMeetingSetup] = useState(false);
   const [showPlaybookDefinitions, setShowPlaybookDefinitions] = useState(false);
   const [showBackupRestore, setShowBackupRestore] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [backupFeedback, setBackupFeedback] =
     useState<WorkspaceBackupFeedback | null>(null);
   const [draggingMeetingSection, setDraggingMeetingSection] =
@@ -896,62 +907,102 @@ export default function Home() {
             </h1>
           </div>
 
-          <div ref={settingsMenuRef} className="relative self-start">
-            <button
-              type="button"
-              onClick={() => setShowSettingsMenu((isOpen) => !isOpen)}
-              className="flex h-14 items-center gap-2 rounded-full bg-blue-600 px-5 font-semibold text-white shadow-lg hover:bg-blue-700"
-              aria-expanded={showSettingsMenu}
-              aria-haspopup="menu"
-              aria-label="Open dashboard menu"
-            >
-              <span className="text-2xl leading-none" aria-hidden="true">
-                ☰
-              </span>
-              Menu
-            </button>
-
-            {showSettingsMenu ? (
-              <div
-                className="absolute right-0 z-40 mt-3 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl"
-                role="menu"
-                aria-label="Dashboard menu"
-              >
+          <div className="flex flex-col gap-3 self-start sm:flex-row sm:items-center">
+            {isAuthLoading ? (
+              <div className="flex h-14 items-center rounded-full border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-500 shadow-sm">
+                Checking account…
+              </div>
+            ) : authSession ? (
+              <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
+                <span className="max-w-56 truncate font-semibold text-slate-700">
+                  {authSession.user.email}
+                </span>
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowMeetingSetup(true);
-                    setShowSettingsMenu(false);
-                  }}
-                  className="block w-full px-5 py-3 text-left text-slate-800 hover:bg-blue-50 hover:text-blue-700"
-                  role="menuitem"
+                  onClick={() => void signOut().catch(() => undefined)}
+                  className="self-start font-semibold text-blue-600 hover:text-blue-800"
                 >
-                  Meeting Setup
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPlaybookDefinitions(true);
-                    setShowSettingsMenu(false);
-                  }}
-                  className="block w-full px-5 py-3 text-left text-slate-800 hover:bg-blue-50 hover:text-blue-700"
-                  role="menuitem"
-                >
-                  Playbook Definitions
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowBackupRestore(true);
-                    setShowSettingsMenu(false);
-                  }}
-                  className="block w-full px-5 py-3 text-left text-slate-800 hover:bg-blue-50 hover:text-blue-700"
-                  role="menuitem"
-                >
-                  Backup / Restore
+                  Sign Out
                 </button>
               </div>
-            ) : null}
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(true)}
+                className="h-14 rounded-full border border-blue-200 bg-white px-5 font-semibold text-blue-700 shadow-sm hover:bg-blue-50"
+              >
+                Sign In
+              </button>
+            )}
+
+            <div ref={settingsMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setShowSettingsMenu((isOpen) => !isOpen)}
+                className="flex h-14 items-center gap-2 rounded-full bg-blue-600 px-5 font-semibold text-white shadow-lg hover:bg-blue-700"
+                aria-expanded={showSettingsMenu}
+                aria-haspopup="menu"
+                aria-label="Open dashboard menu"
+              >
+                <span className="text-2xl leading-none" aria-hidden="true">
+                  ☰
+                </span>
+                Menu
+              </button>
+
+              {showSettingsMenu ? (
+                <div
+                  className="absolute right-0 z-40 mt-3 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl"
+                  role="menu"
+                  aria-label="Dashboard menu"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAuthModal(true);
+                      setShowSettingsMenu(false);
+                    }}
+                    className="block w-full px-5 py-3 text-left text-slate-800 hover:bg-blue-50 hover:text-blue-700"
+                    role="menuitem"
+                  >
+                    {authSession ? "Account" : "Sign In"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMeetingSetup(true);
+                      setShowSettingsMenu(false);
+                    }}
+                    className="block w-full px-5 py-3 text-left text-slate-800 hover:bg-blue-50 hover:text-blue-700"
+                    role="menuitem"
+                  >
+                    Meeting Setup
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPlaybookDefinitions(true);
+                      setShowSettingsMenu(false);
+                    }}
+                    className="block w-full px-5 py-3 text-left text-slate-800 hover:bg-blue-50 hover:text-blue-700"
+                    role="menuitem"
+                  >
+                    Playbook Definitions
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowBackupRestore(true);
+                      setShowSettingsMenu(false);
+                    }}
+                    className="block w-full px-5 py-3 text-left text-slate-800 hover:bg-blue-50 hover:text-blue-700"
+                    role="menuitem"
+                  >
+                    Backup / Restore
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -1169,6 +1220,17 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      <AuthModal
+        isOpen={showAuthModal}
+        isConfigured={isAuthConfigured}
+        isLoading={isAuthLoading}
+        session={authSession}
+        onClose={() => setShowAuthModal(false)}
+        onSignIn={signIn}
+        onSignUp={signUp}
+        onSignOut={signOut}
+      />
 
       {selectedStandardObjectiveId !== null ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
