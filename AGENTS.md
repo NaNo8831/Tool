@@ -23,7 +23,7 @@ Before changing implementation, read:
 - Avoid turning the product into a heavy project management system.
 - Do not make broad product decisions without documenting assumptions and open questions.
 - Preserve export/import backup capability even after cloud persistence is introduced.
-- Do not assume PR #23 Meeting Setup flow is merged unless the current branch contains it.
+- Meeting Setup is part of the current `main` baseline after PR #23; when working from other branches, verify branch contents before assuming it is present.
 - Update `planning/STATE.md` when work changes current project state, active work, parked work, or next actions.
 - Update `planning/DECISIONS.md` only when a durable product, architecture, branch, or operating decision is made.
 - Keep planning and documentation concise, specific, and operational; remove generic AI advice.
@@ -42,7 +42,7 @@ Before changing implementation, read:
 - Vercel deployment.
 - Browser `localStorage` persistence through app hooks and workspace backup utilities.
 - JSON export/import backs up workspace data and should remain available.
-- Major product areas include Playbook Definitions, Top Priority, Defining Objectives, Tasks, task details, comments, activity history, subtasks, Standard Operating Objectives, Strategic Topics, meeting sections, agenda items, decisions/actions, cascading communication, Backup/Restore, and lightweight RichTextEditor formatting.
+- Major product areas include Meeting Setup, Playbook Definitions, Top Priority, Defining Objectives, Tasks, task details, comments, activity history, subtasks, Standard Operating Objectives, Strategic Topics, meeting sections, agenda items, decisions/actions, cascading communication, Backup/Restore, and lightweight RichTextEditor formatting.
 - Supabase cloud/auth/persistence is planned for Phase 2; do not implement it unless the task explicitly targets Phase 2 cloud work on the correct branch.
 
 ## Testing Expectations

@@ -14,12 +14,13 @@ Meeting Tool by LyArk is a lightweight operational leadership meeting tool. It i
 | Cascading Communication | The information staff or direct reports need to know after the leadership meeting. |
 
 ## Current Meeting Flow
-1. Review Playbook Definitions and current organizational context as needed.
-2. Align around the Top Priority / Thematic Goal.
-3. Review Defining Objectives and associated tasks.
-4. Track tasks through `Planning → In Progress → Completed`.
-5. Capture Agenda Items, Strategic Topics, Decisions / Actions, and Cascading Communication in meeting sections.
-6. Preserve workspace data through browser storage and JSON backup exports.
+1. Complete or revisit Meeting Setup to name the team or meeting and seed playbook prompts.
+2. Review Playbook Definitions and current organizational context as needed.
+3. Align around the Top Priority / Thematic Goal.
+4. Review Defining Objectives and associated tasks.
+5. Track tasks through `Planning → In Progress → Completed`.
+6. Capture Agenda Items, Strategic Topics, Decisions / Actions, and Cascading Communication in meeting sections.
+7. Preserve workspace data through browser storage and JSON backup exports.
 
 ## Intended User Roles
 - Project owner: sets product direction, prioritizes work, and validates meeting usefulness.

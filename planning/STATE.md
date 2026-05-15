@@ -6,20 +6,20 @@
 - Deployment: Vercel.
 - Persistence: browser `localStorage`.
 - Backup: JSON export/import workspace backup.
-- Current focus: operational refinement and preparation for Phase 2 cloud planning.
+- Current focus: production UX stabilization, Meeting Setup follow-through, and preparation for Phase 2 cloud planning.
 
 ## Production State
-- The app supports lightweight leadership meeting operations around Playbook Definitions, Top Priority, Defining Objectives, tasks, Standard Operating Objectives, Strategic Topics, meeting sections, and Cascading Communication.
+- The app supports lightweight leadership meeting operations around Meeting Setup, Playbook Definitions, Top Priority, Defining Objectives, tasks, Standard Operating Objectives, Strategic Topics, meeting sections, and Cascading Communication.
 - Tasks follow the workflow `Planning → In Progress → Completed` and include details, descriptions, comments, activity history, and subtasks.
 - RichTextEditor provides lightweight formatting for applicable descriptions/content.
 
 ## Active Work
-- Adopt the 120x operating structure in this repo through planning and documentation files only.
+- Keep the 120x operating structure accurate through lightweight planning and documentation maintenance.
 - Keep `main` stable for production and UX stabilization.
+- Treat the Meeting Setup flow as part of the current production baseline on `main` after PR #23.
 
-## Parked Work
-- PR #23 Meeting Setup flow is parked for later and should not be assumed merged unless the current branch contains it.
-- Phase 2 cloud/auth/persistence work is planned for a separate long-running branch such as `phase-2-cloud`.
+## Parked / Deferred Work
+- Phase 2 cloud/auth/persistence work is deferred to the long-running `phase-2-cloud` branch. Do not begin Phase 2 feature implementation from `main`.
 
 ## Next Actions
 - Use the planning files as the source of truth before future changes.

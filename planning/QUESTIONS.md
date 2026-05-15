@@ -8,4 +8,4 @@
 | What precise behavior should owner, editor, and viewer roles have? | Permissions | Open |
 | Is realtime collaboration required immediately, or only after basic cloud persistence? | Collaboration | Open |
 | How should archived/completed Strategic Topics be surfaced? | Product UX | Open |
-| Should PR #23 Meeting Setup flow be revisited after team testing? | Parked work | Open |
+| What refinements, if any, should the merged Meeting Setup flow receive after team testing? | Product UX | Open |

@@ -5,6 +5,7 @@
 | --- | --- | --- |
 | `AGENTS.md` | Repo instruction | Canonical project operating instructions for Codex/builders. |
 | `CODEX.md` | Repo instruction | Thin Codex adapter pointing to `AGENTS.md` and planning files. |
+| `README.md` | Documentation | Local setup, validation commands, deployment, and Phase 2 environment boundary. |
 | `planning/STATE.md` | Planning | Current project snapshot, active/parked work, next actions. |
 | `planning/DECISIONS.md` | Planning | Durable decisions only. |
 | `planning/DOMAIN.md` | Planning | Business/product terminology and meeting model. |
