@@ -7,6 +7,7 @@ The current app persists workspace data as JSON in browser `localStorage`. Expor
 | Entity | Current Meaning |
 | --- | --- |
 | Workspace | The local collection of Meeting Tool data stored in browser storage. |
+| Meeting Setup State | Browser-local completion flag plus setup-backed fields used to personalize the workspace. |
 | Playbook Definitions | Organizational context and definitions used to guide leadership alignment. |
 | Top Priority | Current short-term rallying priority / thematic goal. |
 | Defining Objective | Temporary qualitative objective that supports the Top Priority. |
