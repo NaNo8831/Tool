@@ -31,6 +31,14 @@ type SupabaseAuthResponse = {
   msg?: string;
 };
 
+const getRestUrl = (table: string) => {
+  if (!supabaseUrl) {
+    throw new Error("Supabase URL is not configured.");
+  }
+
+  return `${supabaseUrl}/rest/v1/${table}`;
+};
+
 const getAuthUrl = (path: string) => {
   if (!supabaseUrl) {
     throw new Error("Supabase URL is not configured.");
@@ -39,7 +47,7 @@ const getAuthUrl = (path: string) => {
   return `${supabaseUrl}/auth/v1${path}`;
 };
 
-const getAuthHeaders = (accessToken?: string) => {
+const getSupabaseHeaders = (accessToken?: string) => {
   if (!supabaseAnonKey) {
     throw new Error("Supabase anon key is not configured.");
   }
@@ -49,6 +57,10 @@ const getAuthHeaders = (accessToken?: string) => {
     Authorization: `Bearer ${accessToken ?? supabaseAnonKey}`,
     "Content-Type": "application/json",
   };
+};
+
+const getAuthHeaders = (accessToken?: string) => {
+  return getSupabaseHeaders(accessToken);
 };
 
 const getAuthErrorMessage = async (response: Response) => {
@@ -174,6 +186,71 @@ export const supabaseAuthClient = {
 
     if (!response.ok) {
       throw new Error(await getAuthErrorMessage(response));
+    }
+  },
+};
+
+
+export type SupabaseFeedbackType =
+  | "Bug"
+  | "UX Friction"
+  | "Suggestion"
+  | "Confusing Workflow";
+
+export type SupabaseFeedbackSeverity = "Minor" | "Blocking";
+
+export type SupabaseFeedbackInsert = {
+  user_id: string | null;
+  user_email: string | null;
+  type: SupabaseFeedbackType;
+  severity: SupabaseFeedbackSeverity;
+  note: string;
+  intent: string | null;
+  page: string;
+  browser: string;
+  app_version: string | null;
+  workspace_snapshot: Record<string, unknown> | null;
+  metadata_json: Record<string, unknown> | null;
+};
+
+const getFeedbackErrorMessage = async (response: Response) => {
+  try {
+    const body = (await response.json()) as {
+      message?: string;
+      error?: string;
+      details?: string;
+    };
+
+    return (
+      body.message ||
+      body.error ||
+      body.details ||
+      `Feedback request failed with status ${response.status}.`
+    );
+  } catch {
+    return `Feedback request failed with status ${response.status}.`;
+  }
+};
+
+export const supabaseFeedbackClient = {
+  async submitFeedback({
+    accessToken,
+    feedback,
+  }: {
+    accessToken?: string;
+    feedback: SupabaseFeedbackInsert;
+  }) {
+    const response = await fetch(getRestUrl("feedback"), {
+      method: "POST",
+      headers: {
+        ...getSupabaseHeaders(accessToken),
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify(feedback),
+    });
+
+    if (!response.ok) {
+      throw new Error(await getFeedbackErrorMessage(response));
     }
   },
 };
