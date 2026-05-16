@@ -1,7 +1,13 @@
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+export const supabaseEnvStatus = {
+  hasUrl: Boolean(supabaseUrl),
+  hasAnonKey: Boolean(supabaseAnonKey),
+};
+
+export const isSupabaseConfigured =
+  supabaseEnvStatus.hasUrl && supabaseEnvStatus.hasAnonKey;
 
 export type SupabaseAuthUser = {
   id: string;

@@ -19,6 +19,7 @@
 ## Active Work
 
 - Feedback Widget Foundation adds lightweight Supabase-backed tester feedback collection for Phase 2 development without creating ticket workflow scope.
+- PR #32 temporarily shows safe Supabase Preview environment diagnostics for URL/key presence only; remove after configuration is confirmed.
 - Keep the 120x operating structure accurate through lightweight planning and documentation maintenance.
 - Keep `main` stable for production and UX stabilization.
 - Treat the Meeting Setup flow as part of the current production baseline on `main` after PR #23.
@@ -31,4 +32,5 @@
 - Use the planning files as the source of truth before future changes.
 - Continue Phase 1 operational usability and stability improvements.
 - Validate Feedback Widget Foundation on a Supabase-configured preview, including authenticated and anonymous feedback submissions.
+- Remove the temporary PR #32 Supabase environment diagnostic after Preview configuration is confirmed.
 - Plan Supabase schema, permissions, and local-to-cloud migration before implementing cloud persistence.
