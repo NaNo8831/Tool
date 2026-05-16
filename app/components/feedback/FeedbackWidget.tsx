@@ -3,7 +3,6 @@
 import { useState, type FormEvent } from "react";
 import {
   isSupabaseConfigured,
-  supabaseEnvStatus,
   supabaseFeedbackClient,
   type SupabaseAuthSession,
   type SupabaseFeedbackSeverity,
@@ -186,42 +185,6 @@ export function FeedbackWidget({
               >
                 ×
               </button>
-            </div>
-
-            <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-              <p className="font-semibold uppercase tracking-wide text-slate-500">
-                Temporary PR #32 Supabase env diagnostic
-              </p>
-              <dl className="mt-2 grid gap-1 sm:grid-cols-2">
-                <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
-                  <dt>NEXT_PUBLIC_SUPABASE_URL</dt>
-                  <dd
-                    className={
-                      supabaseEnvStatus.hasUrl
-                        ? "font-semibold text-emerald-700"
-                        : "font-semibold text-red-700"
-                    }
-                  >
-                    {supabaseEnvStatus.hasUrl ? "Exists" : "Missing"}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
-                  <dt>NEXT_PUBLIC_SUPABASE_ANON_KEY</dt>
-                  <dd
-                    className={
-                      supabaseEnvStatus.hasAnonKey
-                        ? "font-semibold text-emerald-700"
-                        : "font-semibold text-red-700"
-                    }
-                  >
-                    {supabaseEnvStatus.hasAnonKey ? "Exists" : "Missing"}
-                  </dd>
-                </div>
-              </dl>
-              <p className="mt-2 text-slate-500">
-                Values are intentionally hidden and this diagnostic should be
-                removed after Preview env configuration is confirmed.
-              </p>
             </div>
 
             {!isSupabaseConfigured ? (
