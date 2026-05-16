@@ -10,6 +10,7 @@ import { MeetingSection } from "@/app/components/meeting/MeetingSection";
 import { ObjectiveCard } from "@/app/components/objectives/ObjectiveCard";
 import { TaskDetailsModal } from "@/app/components/objectives/TaskDetailsModal";
 import { ColorSquareSelect } from "@/app/components/ui/ColorSquareSelect";
+import { WorkspaceSelector } from "@/app/components/workspace/WorkspaceSelector";
 import {
   RichTextEditor,
   RichTextRenderer,
@@ -908,7 +909,9 @@ export default function Home() {
             </h1>
           </div>
 
-          <div className="flex flex-col gap-3 self-start sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-3 self-start sm:flex-row sm:items-start">
+            <WorkspaceSelector session={authSession} />
+
             {isAuthLoading ? (
               <div className="flex h-14 items-center rounded-full border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-500 shadow-sm">
                 Checking account…
