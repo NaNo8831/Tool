@@ -22,6 +22,7 @@ export type SupabaseWorkspace = {
   owner_id: string;
   name: string;
   metadata_json: Record<string, unknown> | null;
+  workspace_data: Record<string, unknown> | null;
 };
 
 type SupabaseAuthUserResponse = {
@@ -319,6 +320,7 @@ export const supabaseWorkspaceClient = {
         owner_id: ownerId,
         name,
         metadata_json: null,
+        workspace_data: null,
       }),
     });
 
@@ -330,6 +332,73 @@ export const supabaseWorkspaceClient = {
     const workspace = workspaces[0];
     if (!workspace) {
       throw new Error("Supabase did not return the created workspace.");
+    }
+
+    return workspace;
+  },
+
+  async loadWorkspaceData({
+    accessToken,
+    workspaceId,
+  }: {
+    accessToken: string;
+    workspaceId: string;
+  }) {
+    const response = await fetch(
+      `${getRestUrl("workspaces")}?id=eq.${encodeURIComponent(
+        workspaceId,
+      )}&select=id,workspace_data&limit=1`,
+      {
+        method: "GET",
+        headers: getSupabaseHeaders(accessToken),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(await getRestErrorMessage(response, "Workspace load"));
+    }
+
+    const workspaces = (await response.json()) as Pick<
+      SupabaseWorkspace,
+      "id" | "workspace_data"
+    >[];
+    const workspace = workspaces[0];
+    if (!workspace) {
+      throw new Error("Cloud workspace was not found or is not accessible.");
+    }
+
+    return workspace.workspace_data;
+  },
+
+  async saveWorkspaceData({
+    accessToken,
+    workspaceId,
+    data,
+  }: {
+    accessToken: string;
+    workspaceId: string;
+    data: Record<string, unknown>;
+  }) {
+    const response = await fetch(
+      `${getRestUrl("workspaces")}?id=eq.${encodeURIComponent(workspaceId)}`,
+      {
+        method: "PATCH",
+        headers: {
+          ...getSupabaseHeaders(accessToken),
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({ workspace_data: data }),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(await getRestErrorMessage(response, "Workspace save"));
+    }
+
+    const workspaces = (await response.json()) as SupabaseWorkspace[];
+    const workspace = workspaces[0];
+    if (!workspace) {
+      throw new Error("Cloud workspace was not found or is not accessible.");
     }
 
     return workspace;

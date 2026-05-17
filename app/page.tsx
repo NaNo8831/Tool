@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { AuthModal } from "@/app/components/auth/AuthModal";
 import { BackupRestoreModal } from "@/app/components/dashboard/BackupRestoreModal";
 import { MeetingSetupModal } from "@/app/components/dashboard/MeetingSetupModal";
@@ -32,7 +32,9 @@ import {
   restoreWorkspaceBackup,
   validateWorkspaceBackup,
   type WorkspaceBackupFeedback,
+  type WorkspaceBackupFile,
 } from "@/app/lib/workspaceBackup";
+import { supabaseWorkspaceClient } from "@/app/lib/supabaseClient";
 import type {
   MeetingItem,
   MeetingRecord,
@@ -51,6 +53,27 @@ type MeetingSpecificSectionKey =
   | "agendaItems"
   | "decisionItems"
   | "cascadeItems";
+
+const cloudWorkspaceStorageKeyPrefix = "meeting-tool-cloud-workspace";
+
+const getWorkspaceScopedStorageKey = (
+  baseKey: string,
+  cloudWorkspaceId: string,
+) =>
+  cloudWorkspaceId
+    ? `${cloudWorkspaceStorageKeyPrefix}:${cloudWorkspaceId}:${baseKey}`
+    : baseKey;
+
+type CloudSaveStatus = "local" | "idle" | "saving" | "saved" | "error";
+
+const readBackupEntry = <T,>(
+  backup: WorkspaceBackupFile,
+  key: string,
+  fallback: T,
+): T => {
+  const value = backup.localStorage[key];
+  return value === undefined ? fallback : (value as T);
+};
 
 const createBlankMeeting = (): MeetingRecord => ({
   id: Date.now(),
@@ -158,6 +181,18 @@ export default function Home() {
     signIn,
     signOut,
   } = useSupabaseAuth();
+  const [selectedCloudWorkspaceId, setSelectedCloudWorkspaceId] = useState("");
+  const [cloudSaveStatus, setCloudSaveStatus] =
+    useState<CloudSaveStatus>("local");
+  const [cloudWorkspaceMessage, setCloudWorkspaceMessage] = useState("");
+  const [hasLoadedSelectedCloudData, setHasLoadedSelectedCloudData] =
+    useState(false);
+  const [canAutoSaveCloudWorkspace, setCanAutoSaveCloudWorkspace] =
+    useState(false);
+  const workspaceMode = selectedCloudWorkspaceId ? "cloud" : "local";
+  const getStorageKey = (baseKey: string) =>
+    getWorkspaceScopedStorageKey(baseKey, selectedCloudWorkspaceId);
+
   const {
     objectives,
     taskInputs,
@@ -177,44 +212,45 @@ export default function Home() {
     updateTaskInput,
     openTaskDetails,
     closeTaskDetails,
+    replaceObjectives,
     hasLoadedObjectives,
-  } = useObjectives();
+  } = useObjectives(getStorageKey("leadership-objectives"));
   const [meetings, setMeetings, hasLoadedMeetings] = useLocalStorage<
     MeetingRecord[]
-  >("leadership-meetings", initialMeetings);
+  >(getStorageKey("leadership-meetings"), initialMeetings);
   const [activeMeetingId, setActiveMeetingId, hasLoadedActiveMeetingId] =
     useLocalStorage<number>(
-      "leadership-active-meeting-id",
+      getStorageKey("leadership-active-meeting-id"),
       initialMeetings[0].id,
     );
   const [dashboardTitle, setDashboardTitle, hasLoadedDashboardTitle] =
-    useLocalStorage("leadership-dashboard-title", defaultDashboardTitle);
+    useLocalStorage(getStorageKey("leadership-dashboard-title"), defaultDashboardTitle);
   const [organizationInfo, setOrganizationInfo, hasLoadedOrganizationInfo] =
-    useLocalStorage("leadership-organization-info", defaultOrganizationInfo);
+    useLocalStorage(getStorageKey("leadership-organization-info"), defaultOrganizationInfo);
   const [
     hasCompletedMeetingSetup,
     setHasCompletedMeetingSetup,
     hasLoadedMeetingSetup,
-  ] = useLocalStorage(meetingSetupCompletedStorageKey, false);
+  ] = useLocalStorage(getStorageKey(meetingSetupCompletedStorageKey), false);
   const [
     meetingSectionOrder,
     setMeetingSectionOrder,
     hasLoadedMeetingSectionOrder,
   ] = useLocalStorage<MeetingSectionKey[]>(
-    "leadership-meeting-section-order",
+    getStorageKey("leadership-meeting-section-order"),
     defaultMeetingSectionOrder,
   );
   const [
     strategicTopicItems,
     setStrategicTopicItems,
     hasLoadedStrategicTopicItems,
-  ] = useLocalStorage<MeetingItem[]>(strategicTopicsStorageKey, []);
+  ] = useLocalStorage<MeetingItem[]>(getStorageKey(strategicTopicsStorageKey), []);
   const [
     standardOperatingObjectives,
     setStandardOperatingObjectives,
     hasLoadedStandardOperatingObjectives,
   ] = useLocalStorage<StandardOperatingObjective[]>(
-    "leadership-standard-operating-objectives",
+    getStorageKey("leadership-standard-operating-objectives"),
     defaultStandardOperatingObjectives,
   );
   const [selectedStandardObjectiveId, setSelectedStandardObjectiveId] =
@@ -301,7 +337,7 @@ export default function Home() {
   }, [showSettingsMenu]);
 
   useEffect(() => {
-    if (!hasLoadedMeetings) return;
+    if (workspaceMode === "cloud" || !hasLoadedMeetings) return;
 
     const timeoutId = window.setTimeout(() => {
       if (window.localStorage.getItem("leadership-meetings") !== null) return;
@@ -314,10 +350,10 @@ export default function Home() {
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [hasLoadedMeetings, setActiveMeetingId, setMeetings]);
+  }, [hasLoadedMeetings, setActiveMeetingId, setMeetings, workspaceMode]);
 
   useEffect(() => {
-    if (!hasLoadedStrategicTopicItems) return;
+    if (workspaceMode === "cloud" || !hasLoadedStrategicTopicItems) return;
 
     const timeoutId = window.setTimeout(() => {
       if (window.localStorage.getItem(strategicTopicsStorageKey) !== null)
@@ -330,7 +366,7 @@ export default function Home() {
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [hasLoadedStrategicTopicItems, setStrategicTopicItems]);
+  }, [hasLoadedStrategicTopicItems, setStrategicTopicItems, workspaceMode]);
 
   useEffect(() => {
     if (!hasLoadedStrategicTopicItems || strategicTopicItems.length === 0)
@@ -786,18 +822,244 @@ export default function Home() {
     },
   };
 
-  const getCurrentWorkspaceStorage = () =>
-    collectWorkspaceStorage({
-      "leadership-objectives": objectives,
-      "leadership-meetings": meetings,
-      "leadership-active-meeting-id": activeMeeting.id,
-      "leadership-dashboard-title": dashboardTitle,
-      "leadership-organization-info": organizationInfo,
-      [meetingSetupCompletedStorageKey]: hasCompletedMeetingSetup,
-      "leadership-meeting-section-order": meetingSectionOrder,
-      [strategicTopicsStorageKey]: strategicTopicItems,
-      "leadership-standard-operating-objectives": standardOperatingObjectives,
-    });
+  const getCurrentWorkspaceStorage = useCallback(
+    () =>
+      collectWorkspaceStorage({
+        "leadership-objectives": objectives,
+        "leadership-meetings": meetings,
+        "leadership-active-meeting-id": activeMeeting.id,
+        "leadership-dashboard-title": dashboardTitle,
+        "leadership-organization-info": organizationInfo,
+        [meetingSetupCompletedStorageKey]: hasCompletedMeetingSetup,
+        "leadership-meeting-section-order": meetingSectionOrder,
+        [strategicTopicsStorageKey]: strategicTopicItems,
+        "leadership-standard-operating-objectives": standardOperatingObjectives,
+      }),
+    [
+      activeMeeting.id,
+      dashboardTitle,
+      hasCompletedMeetingSetup,
+      meetingSectionOrder,
+      meetings,
+      objectives,
+      organizationInfo,
+      standardOperatingObjectives,
+      strategicTopicItems,
+    ],
+  );
+
+  const applyWorkspaceBackupToState = useCallback(
+    (backup: WorkspaceBackupFile) => {
+      const nextMeetings = readBackupEntry(
+        backup,
+        "leadership-meetings",
+        initialMeetings,
+      );
+      const fallbackActiveMeetingId =
+        nextMeetings[0]?.id ?? initialMeetings[0].id;
+
+      replaceObjectives(
+        readBackupEntry(backup, "leadership-objectives", objectives),
+      );
+      setMeetings(nextMeetings);
+      setActiveMeetingId(
+        readBackupEntry(
+          backup,
+          "leadership-active-meeting-id",
+          fallbackActiveMeetingId,
+        ),
+      );
+      setDashboardTitle(
+        readBackupEntry(
+          backup,
+          "leadership-dashboard-title",
+          defaultDashboardTitle,
+        ),
+      );
+      setOrganizationInfo(
+        readBackupEntry(
+          backup,
+          "leadership-organization-info",
+          defaultOrganizationInfo,
+        ),
+      );
+      setHasCompletedMeetingSetup(
+        readBackupEntry(backup, meetingSetupCompletedStorageKey, false),
+      );
+      setMeetingSectionOrder(
+        readBackupEntry(
+          backup,
+          "leadership-meeting-section-order",
+          defaultMeetingSectionOrder,
+        ),
+      );
+      setStrategicTopicItems(
+        readBackupEntry(backup, strategicTopicsStorageKey, []),
+      );
+      setStandardOperatingObjectives(
+        readBackupEntry(
+          backup,
+          "leadership-standard-operating-objectives",
+          defaultStandardOperatingObjectives,
+        ),
+      );
+    },
+    [
+      initialMeetings,
+      objectives,
+      replaceObjectives,
+      setActiveMeetingId,
+      setDashboardTitle,
+      setHasCompletedMeetingSetup,
+      setMeetingSectionOrder,
+      setMeetings,
+      setOrganizationInfo,
+      setStandardOperatingObjectives,
+      setStrategicTopicItems,
+    ],
+  );
+
+  const handleLoadCloudWorkspace = useCallback(async () => {
+    if (!authSession || !selectedCloudWorkspaceId) return;
+
+    setCloudSaveStatus("saving");
+    setCloudWorkspaceMessage("Loading cloud workspace…");
+
+    try {
+      const cloudData = await supabaseWorkspaceClient.loadWorkspaceData({
+        accessToken: authSession.accessToken,
+        workspaceId: selectedCloudWorkspaceId,
+      });
+
+      if (!cloudData) {
+        setHasLoadedSelectedCloudData(true);
+        setCanAutoSaveCloudWorkspace(false);
+        setCloudSaveStatus("idle");
+        setCloudWorkspaceMessage(
+          "This cloud workspace has no saved data yet. Use Save current workspace to cloud when ready.",
+        );
+        return;
+      }
+
+      const backup = validateWorkspaceBackup(cloudData);
+      applyWorkspaceBackupToState(backup);
+      setHasLoadedSelectedCloudData(true);
+      setCanAutoSaveCloudWorkspace(true);
+      setCloudSaveStatus("saved");
+      setCloudWorkspaceMessage("Cloud workspace loaded.");
+    } catch (error) {
+      setCanAutoSaveCloudWorkspace(false);
+      setCloudSaveStatus("error");
+      setCloudWorkspaceMessage(
+        error instanceof Error
+          ? error.message
+          : "Cloud workspace could not be loaded.",
+      );
+    }
+  }, [
+    applyWorkspaceBackupToState,
+    authSession,
+    selectedCloudWorkspaceId,
+  ]);
+
+  const handleSaveCloudWorkspace = useCallback(async () => {
+    if (!authSession || !selectedCloudWorkspaceId) return;
+
+    setCloudSaveStatus("saving");
+    setCloudWorkspaceMessage("Saving cloud workspace…");
+
+    try {
+      const backup = createWorkspaceBackup(getCurrentWorkspaceStorage());
+      await supabaseWorkspaceClient.saveWorkspaceData({
+        accessToken: authSession.accessToken,
+        workspaceId: selectedCloudWorkspaceId,
+        data: backup,
+      });
+      setHasLoadedSelectedCloudData(true);
+      setCanAutoSaveCloudWorkspace(true);
+      setCloudSaveStatus("saved");
+      setCloudWorkspaceMessage("Saved to cloud.");
+    } catch (error) {
+      setCloudSaveStatus("error");
+      setCloudWorkspaceMessage(
+        error instanceof Error
+          ? error.message
+          : "Cloud workspace could not be saved.",
+      );
+    }
+  }, [authSession, getCurrentWorkspaceStorage, selectedCloudWorkspaceId]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (workspaceMode === "local") {
+        setCloudSaveStatus("local");
+        setCloudWorkspaceMessage("");
+        setHasLoadedSelectedCloudData(false);
+        setCanAutoSaveCloudWorkspace(false);
+        return;
+      }
+
+      setCloudSaveStatus("idle");
+      setCloudWorkspaceMessage(
+        "Select Load cloud workspace or Save current workspace to cloud.",
+      );
+      setHasLoadedSelectedCloudData(false);
+      setCanAutoSaveCloudWorkspace(false);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [selectedCloudWorkspaceId, workspaceMode]);
+
+  useEffect(() => {
+    if (
+      workspaceMode !== "cloud" ||
+      !authSession ||
+      !selectedCloudWorkspaceId ||
+      !hasLoadedDashboardStorage ||
+      hasLoadedSelectedCloudData
+    ) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void handleLoadCloudWorkspace();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    authSession,
+    handleLoadCloudWorkspace,
+    hasLoadedDashboardStorage,
+    hasLoadedSelectedCloudData,
+    selectedCloudWorkspaceId,
+    workspaceMode,
+  ]);
+
+  useEffect(() => {
+    if (
+      workspaceMode !== "cloud" ||
+      !authSession ||
+      !selectedCloudWorkspaceId ||
+      !canAutoSaveCloudWorkspace ||
+      !hasLoadedDashboardStorage
+    ) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void handleSaveCloudWorkspace();
+    }, 900);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    authSession,
+    canAutoSaveCloudWorkspace,
+    getCurrentWorkspaceStorage,
+    handleSaveCloudWorkspace,
+    hasLoadedDashboardStorage,
+    selectedCloudWorkspaceId,
+    workspaceMode,
+  ]);
 
   const handleExportWorkspaceBackup = () => {
     try {
@@ -910,7 +1172,15 @@ export default function Home() {
           </div>
 
           <div className="flex flex-col gap-3 self-start sm:flex-row sm:items-start">
-            <WorkspaceSelector session={authSession} />
+            <WorkspaceSelector
+              session={authSession}
+              selectedCloudWorkspaceId={selectedCloudWorkspaceId}
+              onSelectedCloudWorkspaceIdChange={setSelectedCloudWorkspaceId}
+              saveStatus={cloudSaveStatus}
+              message={cloudWorkspaceMessage}
+              onLoadCloudWorkspace={handleLoadCloudWorkspace}
+              onSaveCloudWorkspace={handleSaveCloudWorkspace}
+            />
 
             {isAuthLoading ? (
               <div className="flex h-14 items-center rounded-full border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-500 shadow-sm">
