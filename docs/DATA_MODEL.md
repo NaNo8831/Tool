@@ -59,3 +59,22 @@ create policy "Allow tester feedback inserts"
 ```
 
 No admin dashboard, ticket status, assignment, notifications, threaded comments, file upload, or screenshot data is part of this foundation.
+
+## Phase 2 Cloud Workspace Container
+
+Cloud workspace foundation adds a lightweight Supabase `workspaces` table as a selectable container for future cloud persistence. Selecting a cloud workspace only changes the current mode and the signed-in user's selected cloud workspace identity in the browser; objectives, tasks, meetings, setup fields, SOOs, Strategic Topics, and backup/restore still use existing `localStorage` data.
+
+Supabase migration: `supabase/migrations/20260516000000_create_workspaces.sql`.
+
+```sql
+create table if not exists public.workspaces (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  name text not null check (char_length(trim(name)) > 0),
+  metadata_json jsonb null
+);
+```
+
+This table intentionally does not contain full Meeting Tool workspace data yet. No local-to-cloud migration, auto-copy, realtime collaboration, team sharing, or member-role model is included in this foundation.

@@ -15,6 +15,15 @@ export type SupabaseAuthSession = {
   user: SupabaseAuthUser;
 };
 
+export type SupabaseWorkspace = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  owner_id: string;
+  name: string;
+  metadata_json: Record<string, unknown> | null;
+};
+
 type SupabaseAuthUserResponse = {
   id?: string;
   email?: string;
@@ -232,6 +241,25 @@ const getFeedbackErrorMessage = async (response: Response) => {
   }
 };
 
+const getRestErrorMessage = async (response: Response, fallback: string) => {
+  try {
+    const body = (await response.json()) as {
+      message?: string;
+      error?: string;
+      details?: string;
+    };
+
+    return (
+      body.message ||
+      body.error ||
+      body.details ||
+      `${fallback} Request failed with status ${response.status}.`
+    );
+  } catch {
+    return `${fallback} Request failed with status ${response.status}.`;
+  }
+};
+
 export const supabaseFeedbackClient = {
   async submitFeedback({
     accessToken,
@@ -252,5 +280,58 @@ export const supabaseFeedbackClient = {
     if (!response.ok) {
       throw new Error(await getFeedbackErrorMessage(response));
     }
+  },
+};
+
+export const supabaseWorkspaceClient = {
+  async listWorkspaces(accessToken: string) {
+    const response = await fetch(
+      `${getRestUrl("workspaces")}?select=*&order=updated_at.desc`,
+      {
+        method: "GET",
+        headers: getSupabaseHeaders(accessToken),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(await getRestErrorMessage(response, "Workspace list"));
+    }
+
+    return (await response.json()) as SupabaseWorkspace[];
+  },
+
+  async createWorkspace({
+    accessToken,
+    ownerId,
+    name,
+  }: {
+    accessToken: string;
+    ownerId: string;
+    name: string;
+  }) {
+    const response = await fetch(getRestUrl("workspaces"), {
+      method: "POST",
+      headers: {
+        ...getSupabaseHeaders(accessToken),
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        owner_id: ownerId,
+        name,
+        metadata_json: null,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(await getRestErrorMessage(response, "Workspace create"));
+    }
+
+    const workspaces = (await response.json()) as SupabaseWorkspace[];
+    const workspace = workspaces[0];
+    if (!workspace) {
+      throw new Error("Supabase did not return the created workspace.");
+    }
+
+    return workspace;
   },
 };
