@@ -18,7 +18,7 @@
 
 ## Active Work
 
-- Cloud Workspace Foundation adds a lightweight Local Workspace / Cloud Workspace mode and owner-only Supabase workspace containers without moving full workspace data out of `localStorage`.
+- Cloud Workspace Foundation adds a lightweight Local Workspace / Cloud Workspace mode and owner-only Supabase workspace containers with per-user selection state, without moving full workspace data out of `localStorage`.
 - Keep the 120x operating structure accurate through lightweight planning and documentation maintenance.
 - Keep `main` stable for production and UX stabilization.
 - Treat the Meeting Setup flow as part of the current production baseline on `main` after PR #23.
@@ -30,5 +30,5 @@
 
 - Use the planning files as the source of truth before future changes.
 - Continue Phase 1 operational usability and stability improvements.
-- Validate Cloud Workspace Foundation on a Supabase-configured preview, including signed-out local mode, signed-in create/select/switch behavior, owner-only RLS, existing localStorage data, export/import, and Feedback Widget behavior.
+- Validate Cloud Workspace Foundation on a Supabase-configured preview, including signed-out local mode, signed-in create/select/switch behavior, user-scoped workspace selection, owner-only RLS, existing localStorage data, export/import, and Feedback Widget behavior.
 - Plan full cloud persistence schema and local-to-cloud migration before saving Meeting Tool workspace data to Supabase.

@@ -3,7 +3,7 @@
 ## Current State
 - Signed-out users can use Local Workspace with browser `localStorage` and JSON export/import backup.
 - Supabase email/password auth is available on `phase-2-cloud` when environment variables are configured.
-- Authenticated users can create and select owner-only cloud workspace containers.
+- Authenticated users can create and select owner-only cloud workspace containers; selected cloud workspace IDs are scoped by signed-in user in browser state.
 - Selecting a Cloud Workspace does not save objectives, tasks, meetings, setup fields, or other full workspace data to Supabase yet.
 - Tester feedback can be submitted to Supabase separately from workspace persistence.
 

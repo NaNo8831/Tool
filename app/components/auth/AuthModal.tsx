@@ -51,6 +51,7 @@ export function AuthModal({
         setFeedback({ type: "success", message: "Signed in successfully." });
       } else {
         const nextSession = await onSignUp(email.trim(), password);
+        setMode("signIn");
         setFeedback({
           type: "success",
           message: nextSession
@@ -93,8 +94,16 @@ export function AuthModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      onMouseDown={() => {
+        if (!isSubmitting) onClose();
+      }}
+    >
+      <div
+        className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">

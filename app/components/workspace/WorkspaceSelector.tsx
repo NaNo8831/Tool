@@ -19,84 +19,80 @@ type WorkspaceMessage = {
   text: string;
 };
 
-const workspaceModeStorageKey = "meeting-tool-workspace-mode";
-const selectedCloudWorkspaceStorageKey = "meeting-tool-selected-cloud-workspace-id";
+const selectedCloudWorkspaceStorageKeyPrefix =
+  "meeting-tool-selected-cloud-workspace-id";
 
-const readStoredWorkspaceMode = (): WorkspaceMode => {
-  if (typeof window === "undefined") return "local";
+const getSelectedCloudWorkspaceStorageKey = (userId: string) =>
+  `${selectedCloudWorkspaceStorageKeyPrefix}:${userId}`;
 
-  return window.localStorage.getItem(workspaceModeStorageKey) === "cloud"
-    ? "cloud"
-    : "local";
-};
-
-const readStoredCloudWorkspaceId = () => {
+const readStoredCloudWorkspaceId = (userId: string) => {
   if (typeof window === "undefined") return "";
 
-  return window.localStorage.getItem(selectedCloudWorkspaceStorageKey) ?? "";
+  return (
+    window.localStorage.getItem(getSelectedCloudWorkspaceStorageKey(userId)) ??
+    ""
+  );
+};
+
+const writeStoredCloudWorkspaceId = (userId: string, workspaceId: string) => {
+  if (typeof window === "undefined") return;
+
+  const storageKey = getSelectedCloudWorkspaceStorageKey(userId);
+  if (workspaceId) {
+    window.localStorage.setItem(storageKey, workspaceId);
+    return;
+  }
+
+  window.localStorage.removeItem(storageKey);
 };
 
 export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("local");
   const [selectedCloudWorkspaceId, setSelectedCloudWorkspaceId] = useState("");
   const [hasLoadedWorkspaceSelection, setHasLoadedWorkspaceSelection] =
     useState(false);
   const [workspaces, setWorkspaces] = useState<SupabaseWorkspace[]>([]);
+  const [workspaceOwnerId, setWorkspaceOwnerId] = useState<string | null>(null);
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [isLoadingWorkspaces, setIsLoadingWorkspaces] = useState(false);
   const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
   const [message, setMessage] = useState<WorkspaceMessage | null>(null);
 
-  const effectiveWorkspaceMode: WorkspaceMode = session ? workspaceMode : "local";
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setWorkspaceMode(readStoredWorkspaceMode());
-      setSelectedCloudWorkspaceId(readStoredCloudWorkspaceId());
-      setHasLoadedWorkspaceSelection(true);
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, []);
-
+  const visibleWorkspaces = useMemo(
+    () =>
+      session && workspaceOwnerId === session.user.id ? workspaces : [],
+    [session, workspaceOwnerId, workspaces],
+  );
   const selectedWorkspace = useMemo(
     () =>
-      workspaces.find((workspace) => workspace.id === selectedCloudWorkspaceId) ??
-      null,
-    [selectedCloudWorkspaceId, workspaces],
+      visibleWorkspaces.find(
+        (workspace) => workspace.id === selectedCloudWorkspaceId,
+      ) ?? null,
+    [selectedCloudWorkspaceId, visibleWorkspaces],
   );
+  const effectiveWorkspaceMode: WorkspaceMode = selectedWorkspace
+    ? "cloud"
+    : "local";
 
   useEffect(() => {
-    if (typeof window === "undefined" || !hasLoadedWorkspaceSelection) return;
-
-    window.localStorage.setItem(workspaceModeStorageKey, workspaceMode);
-  }, [hasLoadedWorkspaceSelection, workspaceMode]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !hasLoadedWorkspaceSelection) return;
-
-    if (selectedCloudWorkspaceId) {
-      window.localStorage.setItem(
-        selectedCloudWorkspaceStorageKey,
-        selectedCloudWorkspaceId,
-      );
-      return;
-    }
-
-    window.localStorage.removeItem(selectedCloudWorkspaceStorageKey);
-  }, [hasLoadedWorkspaceSelection, selectedCloudWorkspaceId]);
-
-  useEffect(() => {
-    if (!session || !isSupabaseConfigured) return;
-
     let isMounted = true;
 
     const loadWorkspaces = async () => {
       await Promise.resolve();
       if (!isMounted) return;
 
-      setIsLoadingWorkspaces(true);
+      setHasLoadedWorkspaceSelection(false);
+      setSelectedCloudWorkspaceId("");
+      setWorkspaces([]);
+      setWorkspaceOwnerId(null);
       setMessage(null);
+
+      if (!session || !isSupabaseConfigured) {
+        setIsLoadingWorkspaces(false);
+        setHasLoadedWorkspaceSelection(true);
+        return;
+      }
+
+      setIsLoadingWorkspaces(true);
 
       try {
         const nextWorkspaces = await supabaseWorkspaceClient.listWorkspaces(
@@ -104,20 +100,20 @@ export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
         );
         if (!isMounted) return;
 
-        setWorkspaces(nextWorkspaces);
-        setSelectedCloudWorkspaceId((currentWorkspaceId) => {
-          if (
-            currentWorkspaceId &&
-            !nextWorkspaces.some(
-              (workspace) => workspace.id === currentWorkspaceId,
-            )
-          ) {
-            setWorkspaceMode("local");
-            return "";
-          }
+        const storedWorkspaceId = readStoredCloudWorkspaceId(session.user.id);
+        const storedWorkspaceBelongsToUser = nextWorkspaces.some(
+          (workspace) => workspace.id === storedWorkspaceId,
+        );
 
-          return currentWorkspaceId;
-        });
+        if (storedWorkspaceId && !storedWorkspaceBelongsToUser) {
+          writeStoredCloudWorkspaceId(session.user.id, "");
+        }
+
+        setWorkspaces(nextWorkspaces);
+        setWorkspaceOwnerId(session.user.id);
+        setSelectedCloudWorkspaceId(
+          storedWorkspaceBelongsToUser ? storedWorkspaceId : "",
+        );
       } catch (error) {
         if (!isMounted) return;
 
@@ -129,7 +125,10 @@ export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
               : "Cloud workspaces could not be loaded.",
         });
       } finally {
-        if (isMounted) setIsLoadingWorkspaces(false);
+        if (isMounted) {
+          setIsLoadingWorkspaces(false);
+          setHasLoadedWorkspaceSelection(true);
+        }
       }
     };
 
@@ -140,14 +139,19 @@ export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
     };
   }, [session]);
 
+  useEffect(() => {
+    if (!session || !hasLoadedWorkspaceSelection) return;
+
+    writeStoredCloudWorkspaceId(session.user.id, selectedCloudWorkspaceId);
+  }, [hasLoadedWorkspaceSelection, selectedCloudWorkspaceId, session]);
+
   const selectLocalWorkspace = () => {
-    setWorkspaceMode("local");
+    setSelectedCloudWorkspaceId("");
     setMessage(null);
   };
 
   const selectCloudWorkspace = (workspaceId: string) => {
     setSelectedCloudWorkspaceId(workspaceId);
-    setWorkspaceMode(workspaceId ? "cloud" : "local");
     setMessage(null);
   };
 
@@ -172,8 +176,8 @@ export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
       });
 
       setWorkspaces((currentWorkspaces) => [workspace, ...currentWorkspaces]);
+      setWorkspaceOwnerId(session.user.id);
       setSelectedCloudWorkspaceId(workspace.id);
-      setWorkspaceMode("cloud");
       setNewWorkspaceName("");
       setMessage({
         type: "success",
@@ -241,24 +245,18 @@ export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
         <div className="mt-4 space-y-3">
           <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
             <select
-              value={
-                effectiveWorkspaceMode === "cloud"
-                  ? selectedCloudWorkspaceId
-                  : "local"
-              }
-              onChange={(event) => {
-                if (event.target.value === "local") {
-                  selectLocalWorkspace();
-                } else {
-                  selectCloudWorkspace(event.target.value);
-                }
-              }}
-              disabled={isLoadingWorkspaces}
+              value={selectedCloudWorkspaceId}
+              onChange={(event) => selectCloudWorkspace(event.target.value)}
+              disabled={isLoadingWorkspaces || visibleWorkspaces.length === 0}
               className="min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
-              aria-label="Select workspace mode"
+              aria-label="Select cloud workspace"
             >
-              <option value="local">Local Workspace</option>
-              {workspaces.map((workspace) => (
+              <option value="" disabled>
+                {visibleWorkspaces.length === 0
+                  ? "No cloud workspaces yet"
+                  : "Select Cloud Workspace"}
+              </option>
+              {visibleWorkspaces.map((workspace) => (
                 <option key={workspace.id} value={workspace.id}>
                   {workspace.name}
                 </option>

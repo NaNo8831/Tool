@@ -29,7 +29,7 @@
 
 ## Persistence Boundary
 
-Current workspace data is stored in browser `localStorage`, including the Meeting Setup completion flag and setup-backed workspace fields. Backup/export/import is the safety mechanism for moving or restoring workspace data. Supabase Auth session data, feedback submissions, and cloud workspace container selection are separate from workspace records and do not change workspace storage behavior.
+Current workspace data is stored in browser `localStorage`, including the Meeting Setup completion flag and setup-backed workspace fields. Backup/export/import is the safety mechanism for moving or restoring workspace data. Supabase Auth session data, feedback submissions, and per-user cloud workspace container selection are separate from workspace records and do not change workspace storage behavior.
 
 ## Phase 2 Boundary
 

@@ -62,7 +62,7 @@ No admin dashboard, ticket status, assignment, notifications, threaded comments,
 
 ## Phase 2 Cloud Workspace Container
 
-Cloud workspace foundation adds a lightweight Supabase `workspaces` table as a selectable container for future cloud persistence. Selecting a cloud workspace only changes the current mode and selected cloud workspace identity in the browser; objectives, tasks, meetings, setup fields, SOOs, Strategic Topics, and backup/restore still use existing `localStorage` data.
+Cloud workspace foundation adds a lightweight Supabase `workspaces` table as a selectable container for future cloud persistence. Selecting a cloud workspace only changes the current mode and the signed-in user's selected cloud workspace identity in the browser; objectives, tasks, meetings, setup fields, SOOs, Strategic Topics, and backup/restore still use existing `localStorage` data.
 
 Supabase migration: `supabase/migrations/20260516000000_create_workspaces.sql`.
 
