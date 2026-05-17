@@ -9,9 +9,17 @@ import {
 } from "@/app/lib/supabaseClient";
 
 type WorkspaceMode = "local" | "cloud";
+type SaveStatus = "local" | "idle" | "saving" | "saved" | "error";
 
 type WorkspaceSelectorProps = {
   session: SupabaseAuthSession | null;
+  selectedCloudWorkspaceId: string;
+  onSelectedCloudWorkspaceIdChange: (workspaceId: string) => void;
+  onSelectedCloudWorkspaceNameChange: (workspaceName: string) => void;
+  saveStatus: SaveStatus;
+  message: string;
+  onLoadCloudWorkspace: () => void;
+  onSaveCloudWorkspace: () => void;
 };
 
 type WorkspaceMessage = {
@@ -46,8 +54,48 @@ const writeStoredCloudWorkspaceId = (userId: string, workspaceId: string) => {
   window.localStorage.removeItem(storageKey);
 };
 
-export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
-  const [selectedCloudWorkspaceId, setSelectedCloudWorkspaceId] = useState("");
+const getStatusLabel = (status: SaveStatus) => {
+  switch (status) {
+    case "saving":
+      return "Saving";
+    case "saved":
+      return "Saved to cloud";
+    case "error":
+      return "Save error";
+    case "idle":
+      return "Cloud Workspace";
+    case "local":
+    default:
+      return "Local only";
+  }
+};
+
+const getStatusClasses = (status: SaveStatus) => {
+  switch (status) {
+    case "saving":
+      return "border-blue-200 bg-blue-50 text-blue-700";
+    case "saved":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "error":
+      return "border-red-200 bg-red-50 text-red-700";
+    case "idle":
+      return "border-slate-200 bg-white text-slate-700";
+    case "local":
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-700";
+  }
+};
+
+export function WorkspaceSelector({
+  session,
+  selectedCloudWorkspaceId,
+  onSelectedCloudWorkspaceIdChange,
+  onSelectedCloudWorkspaceNameChange,
+  saveStatus,
+  message,
+  onLoadCloudWorkspace,
+  onSaveCloudWorkspace,
+}: WorkspaceSelectorProps) {
   const [hasLoadedWorkspaceSelection, setHasLoadedWorkspaceSelection] =
     useState(false);
   const [workspaces, setWorkspaces] = useState<SupabaseWorkspace[]>([]);
@@ -55,11 +103,11 @@ export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [isLoadingWorkspaces, setIsLoadingWorkspaces] = useState(false);
   const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
-  const [message, setMessage] = useState<WorkspaceMessage | null>(null);
+  const [workspaceMessage, setWorkspaceMessage] =
+    useState<WorkspaceMessage | null>(null);
 
   const visibleWorkspaces = useMemo(
-    () =>
-      session && workspaceOwnerId === session.user.id ? workspaces : [],
+    () => (session && workspaceOwnerId === session.user.id ? workspaces : []),
     [session, workspaceOwnerId, workspaces],
   );
   const selectedWorkspace = useMemo(
@@ -81,10 +129,11 @@ export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
       if (!isMounted) return;
 
       setHasLoadedWorkspaceSelection(false);
-      setSelectedCloudWorkspaceId("");
+      onSelectedCloudWorkspaceIdChange("");
+      onSelectedCloudWorkspaceNameChange("");
       setWorkspaces([]);
       setWorkspaceOwnerId(null);
-      setMessage(null);
+      setWorkspaceMessage(null);
 
       if (!session || !isSupabaseConfigured) {
         setIsLoadingWorkspaces(false);
@@ -111,13 +160,15 @@ export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
 
         setWorkspaces(nextWorkspaces);
         setWorkspaceOwnerId(session.user.id);
-        setSelectedCloudWorkspaceId(
-          storedWorkspaceBelongsToUser ? storedWorkspaceId : "",
-        );
+        const restoredWorkspace = storedWorkspaceBelongsToUser
+          ? nextWorkspaces.find((workspace) => workspace.id === storedWorkspaceId)
+          : null;
+        onSelectedCloudWorkspaceIdChange(restoredWorkspace?.id ?? "");
+        onSelectedCloudWorkspaceNameChange(restoredWorkspace?.name ?? "");
       } catch (error) {
         if (!isMounted) return;
 
-        setMessage({
+        setWorkspaceMessage({
           type: "error",
           text:
             error instanceof Error
@@ -137,7 +188,11 @@ export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
     return () => {
       isMounted = false;
     };
-  }, [session]);
+  }, [
+    onSelectedCloudWorkspaceIdChange,
+    onSelectedCloudWorkspaceNameChange,
+    session,
+  ]);
 
   useEffect(() => {
     if (!session || !hasLoadedWorkspaceSelection) return;
@@ -146,13 +201,16 @@ export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
   }, [hasLoadedWorkspaceSelection, selectedCloudWorkspaceId, session]);
 
   const selectLocalWorkspace = () => {
-    setSelectedCloudWorkspaceId("");
-    setMessage(null);
+    onSelectedCloudWorkspaceIdChange("");
+    onSelectedCloudWorkspaceNameChange("");
+    setWorkspaceMessage(null);
   };
 
   const selectCloudWorkspace = (workspaceId: string) => {
-    setSelectedCloudWorkspaceId(workspaceId);
-    setMessage(null);
+    const workspace = visibleWorkspaces.find((item) => item.id === workspaceId);
+    onSelectedCloudWorkspaceIdChange(workspaceId);
+    onSelectedCloudWorkspaceNameChange(workspace?.name ?? "");
+    setWorkspaceMessage(null);
   };
 
   const handleCreateWorkspace = async (event: FormEvent<HTMLFormElement>) => {
@@ -161,12 +219,12 @@ export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
 
     const trimmedName = newWorkspaceName.trim();
     if (!trimmedName) {
-      setMessage({ type: "error", text: "Name the cloud workspace first." });
+      setWorkspaceMessage({ type: "error", text: "Name the cloud workspace first." });
       return;
     }
 
     setIsCreatingWorkspace(true);
-    setMessage(null);
+    setWorkspaceMessage(null);
 
     try {
       const workspace = await supabaseWorkspaceClient.createWorkspace({
@@ -177,14 +235,15 @@ export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
 
       setWorkspaces((currentWorkspaces) => [workspace, ...currentWorkspaces]);
       setWorkspaceOwnerId(session.user.id);
-      setSelectedCloudWorkspaceId(workspace.id);
+      onSelectedCloudWorkspaceIdChange(workspace.id);
+      onSelectedCloudWorkspaceNameChange(workspace.name);
       setNewWorkspaceName("");
-      setMessage({
+      setWorkspaceMessage({
         type: "success",
-        text: "Cloud workspace container created. Local data was not migrated.",
+        text: "Cloud workspace created. Local data was not migrated.",
       });
     } catch (error) {
-      setMessage({
+      setWorkspaceMessage({
         type: "error",
         text:
           error instanceof Error
@@ -209,26 +268,22 @@ export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
               : "Local Workspace"}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Mode:{" "}
-            {effectiveWorkspaceMode === "cloud"
-              ? "Cloud Workspace"
-              : "Local Workspace"}
+            Mode: {effectiveWorkspaceMode === "cloud" ? "Cloud Workspace" : "Local only"}
           </p>
         </div>
         <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-            effectiveWorkspaceMode === "cloud"
-              ? "bg-blue-100 text-blue-700"
-              : "bg-slate-100 text-slate-700"
-          }`}
+          className={`rounded-full border px-3 py-1 text-xs font-semibold ${getStatusClasses(
+            saveStatus,
+          )}`}
         >
-          {effectiveWorkspaceMode === "cloud" ? "Cloud" : "Local"}
+          {getStatusLabel(saveStatus)}
         </span>
       </div>
 
       <p className="mt-3 text-xs leading-relaxed text-slate-500">
-        Cloud workspaces only save the selected container for now. Meeting data,
-        backup, and restore continue to use this browser&apos;s local workspace.
+        Local Workspace keeps this browser&apos;s localStorage data. Cloud Workspace
+        saves and loads the selected workspace in Supabase without auto-migrating
+        local data.
       </p>
 
       {!session ? (
@@ -271,6 +326,27 @@ export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
             </button>
           </div>
 
+          {effectiveWorkspaceMode === "cloud" ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={onLoadCloudWorkspace}
+                disabled={saveStatus === "saving"}
+                className="rounded-xl border border-blue-200 px-3 py-2 font-semibold text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Load cloud workspace
+              </button>
+              <button
+                type="button"
+                onClick={onSaveCloudWorkspace}
+                disabled={saveStatus === "saving"}
+                className="rounded-xl bg-blue-600 px-3 py-2 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Save current workspace to cloud
+              </button>
+            </div>
+          ) : null}
+
           <form
             className="grid gap-2 sm:grid-cols-[1fr_auto]"
             onSubmit={handleCreateWorkspace}
@@ -299,14 +375,20 @@ export function WorkspaceSelector({ session }: WorkspaceSelectorProps) {
       )}
 
       {message ? (
+        <p className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          {message}
+        </p>
+      ) : null}
+
+      {workspaceMessage ? (
         <p
           className={`mt-3 rounded-xl border px-3 py-2 text-xs ${
-            message.type === "success"
+            workspaceMessage.type === "success"
               ? "border-emerald-200 bg-emerald-50 text-emerald-800"
               : "border-red-200 bg-red-50 text-red-700"
           }`}
         >
-          {message.text}
+          {workspaceMessage.text}
         </p>
       ) : null}
     </section>

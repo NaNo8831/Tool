@@ -7,7 +7,7 @@ export type WorkspaceBackupFeedback = {
   message: string;
 };
 
-type WorkspaceBackupFile = {
+export type WorkspaceBackupFile = {
   app: typeof workspaceBackupAppId;
   backupVersion: number;
   exportedAt: string;

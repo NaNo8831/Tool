@@ -1,7 +1,7 @@
 # Data Model
 
 ## Current Storage
-The current app persists workspace data as JSON in browser `localStorage`. Export/import backs up and restores local workspace keys. The future cloud schema is unresolved.
+Local Workspace persists workspace data as JSON in browser `localStorage`. Export/import backs up and restores the same Meeting Tool workspace keys. Selected Cloud Workspaces save/load that full backup object in Supabase while retaining browser fallback state and without forcing migration from Local Workspace.
 
 ## Logical Entities
 | Entity | Current Meaning |
@@ -21,10 +21,10 @@ The current app persists workspace data as JSON in browser `localStorage`. Expor
 | Meeting Section Item | Agenda, topic, decision/action, or cascade item captured during meeting workflow. |
 
 ## Phase 2 Open Design Items
-- Whether to store workspace data as JSONB initially or normalize into separate tables.
+- Whether basic JSONB workspace persistence should later be normalized into separate tables.
 - How to migrate local workspace data without duplicates or overwrites.
 - How owner/editor/viewer permissions affect entity access and mutation.
-- Whether realtime collaboration is required with the first cloud release.
+- Whether realtime collaboration is required after basic cloud persistence.
 
 ## Phase 2 Feedback Table
 
@@ -60,11 +60,11 @@ create policy "Allow tester feedback inserts"
 
 No admin dashboard, ticket status, assignment, notifications, threaded comments, file upload, or screenshot data is part of this foundation.
 
-## Phase 2 Cloud Workspace Container
+## Phase 2 Cloud Workspace Persistence
 
-Cloud workspace foundation adds a lightweight Supabase `workspaces` table as a selectable container for future cloud persistence. Selecting a cloud workspace only changes the current mode and the signed-in user's selected cloud workspace identity in the browser; objectives, tasks, meetings, setup fields, SOOs, Strategic Topics, and backup/restore still use existing `localStorage` data.
+Cloud workspace persistence keeps the lightweight Supabase `workspaces` table as the workspace identity/container and adds a nullable `workspace_data` JSONB column for the full Meeting Tool backup object. The saved object uses the same export shape as JSON Backup/Restore: `app`, `backupVersion`, `exportedAt`, and `localStorage` entries for Meeting Tool workspace keys.
 
-Supabase migration: `supabase/migrations/20260516000000_create_workspaces.sql`.
+Supabase migrations: `supabase/migrations/20260516000000_create_workspaces.sql` and `supabase/migrations/20260517000000_add_workspace_data.sql`.
 
 ```sql
 create table if not exists public.workspaces (
@@ -73,8 +73,9 @@ create table if not exists public.workspaces (
   updated_at timestamptz not null default now(),
   owner_id uuid not null references auth.users(id) on delete cascade,
   name text not null check (char_length(trim(name)) > 0),
-  metadata_json jsonb null
+  metadata_json jsonb null,
+  workspace_data jsonb null
 );
 ```
 
-This table intentionally does not contain full Meeting Tool workspace data yet. No local-to-cloud migration, auto-copy, realtime collaboration, team sharing, or member-role model is included in this foundation.
+Only authenticated owners can select/update rows through RLS. New cloud workspaces may have `workspace_data = null`; the app does not auto-copy Local Workspace data on first selection, and dropdown selection does not load `workspace_data` until the user clicks Load Cloud Workspace. Saving current data to cloud requires an overwrite confirmation. No forced migration, realtime collaboration, team sharing, or member-role model is included in this basic persistence step.

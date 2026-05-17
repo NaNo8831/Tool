@@ -2,6 +2,8 @@
 
 | Date | Decision | Rationale / Notes |
 | --- | --- | --- |
+| 2026-05-17 | Store basic Cloud Workspace data as nullable JSONB on `workspaces.workspace_data`. | Keeps the Phase 2 persistence step small by saving the existing JSON backup shape for owner-only Cloud Workspaces while preserving Local Workspace, export/import, and no forced migration. |
+| 2026-05-17 | Keep Cloud Workspace load/save explicit. | Selecting a cloud workspace container must not load or overwrite visible workspace data; saving to cloud requires an overwrite confirmation so local imports and current data are not silently pushed to Supabase. |
 | 2026-05-16 | Add owner-only Supabase workspace containers before full cloud persistence. | Creates a safe Cloud Workspace identity for future Phase 2 work while keeping Local Workspace as the default and preserving localStorage plus JSON export/import behavior. |
 | 2026-05-15 | Close stale Supabase Foundation PR work in favor of a fresh PR based on the updated `phase-2-cloud` branch. | Keeps Phase 2 cloud work aligned with the current long-running branch and avoids carrying forward drift from older PR context. |
 | 2026-05-13 | Phase 1 remains localStorage-first. | Keeps the live operational beta simple while usability stabilizes. |
