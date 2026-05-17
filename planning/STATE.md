@@ -18,7 +18,7 @@
 
 ## Active Work
 
-- Cloud Workspace Persistence adds owner-only Supabase save/load for selected Cloud Workspaces while preserving Local Workspace `localStorage`, per-user cloud selection, and JSON export/import backup.
+- Cloud Workspace Persistence adds owner-only Supabase save/load for selected Cloud Workspaces while preserving Local Workspace `localStorage`, per-user cloud selection, explicit load/save actions, overwrite confirmation, and JSON export/import backup.
 - Keep the 120x operating structure accurate through lightweight planning and documentation maintenance.
 - Keep `main` stable for production and UX stabilization.
 - Treat the Meeting Setup flow as part of the current production baseline on `main` after PR #23.
@@ -30,5 +30,5 @@
 
 - Use the planning files as the source of truth before future changes.
 - Continue Phase 1 operational usability and stability improvements.
-- Validate Cloud Workspace Persistence on a Supabase-configured preview, including signed-out local mode, signed-in create/select/switch behavior, save/load, refresh loading, user-scoped workspace selection, owner-only RLS, existing localStorage data, export/import, and Feedback Widget behavior.
+- Validate Cloud Workspace Persistence on a Supabase-configured preview, including signed-out local mode, signed-in create/select/switch behavior, no auto-load on dropdown selection, explicit save/load, import while Cloud Workspace is selected, overwrite confirmation, user-scoped workspace selection, owner-only RLS, existing localStorage data, export/import, and Feedback Widget behavior.
 - Plan any future normalization, migration, sharing, roles, and realtime collaboration separately before expanding beyond basic owner-only JSONB persistence.

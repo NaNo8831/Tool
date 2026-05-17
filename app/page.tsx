@@ -29,7 +29,6 @@ import {
 import {
   collectWorkspaceStorage,
   createWorkspaceBackup,
-  restoreWorkspaceBackup,
   validateWorkspaceBackup,
   type WorkspaceBackupFeedback,
   type WorkspaceBackupFile,
@@ -182,16 +181,15 @@ export default function Home() {
     signOut,
   } = useSupabaseAuth();
   const [selectedCloudWorkspaceId, setSelectedCloudWorkspaceId] = useState("");
+  const [selectedCloudWorkspaceName, setSelectedCloudWorkspaceName] =
+    useState("");
+  const [activeCloudWorkspaceId, setActiveCloudWorkspaceId] = useState("");
   const [cloudSaveStatus, setCloudSaveStatus] =
     useState<CloudSaveStatus>("local");
   const [cloudWorkspaceMessage, setCloudWorkspaceMessage] = useState("");
-  const [hasLoadedSelectedCloudData, setHasLoadedSelectedCloudData] =
-    useState(false);
-  const [canAutoSaveCloudWorkspace, setCanAutoSaveCloudWorkspace] =
-    useState(false);
   const workspaceMode = selectedCloudWorkspaceId ? "cloud" : "local";
   const getStorageKey = (baseKey: string) =>
-    getWorkspaceScopedStorageKey(baseKey, selectedCloudWorkspaceId);
+    getWorkspaceScopedStorageKey(baseKey, activeCloudWorkspaceId);
 
   const {
     objectives,
@@ -848,6 +846,20 @@ export default function Home() {
     ],
   );
 
+  const storeWorkspaceBackupInBrowser = useCallback(
+    (backup: WorkspaceBackupFile, cloudWorkspaceId = "") => {
+      if (typeof window === "undefined") return;
+
+      Object.entries(backup.localStorage).forEach(([key, value]) => {
+        window.localStorage.setItem(
+          getWorkspaceScopedStorageKey(key, cloudWorkspaceId),
+          JSON.stringify(value),
+        );
+      });
+    },
+    [],
+  );
+
   const applyWorkspaceBackupToState = useCallback(
     (backup: WorkspaceBackupFile) => {
       const nextMeetings = readBackupEntry(
@@ -932,8 +944,6 @@ export default function Home() {
       });
 
       if (!cloudData) {
-        setHasLoadedSelectedCloudData(true);
-        setCanAutoSaveCloudWorkspace(false);
         setCloudSaveStatus("idle");
         setCloudWorkspaceMessage(
           "This cloud workspace has no saved data yet. Use Save current workspace to cloud when ready.",
@@ -942,13 +952,12 @@ export default function Home() {
       }
 
       const backup = validateWorkspaceBackup(cloudData);
+      storeWorkspaceBackupInBrowser(backup, selectedCloudWorkspaceId);
+      setActiveCloudWorkspaceId(selectedCloudWorkspaceId);
       applyWorkspaceBackupToState(backup);
-      setHasLoadedSelectedCloudData(true);
-      setCanAutoSaveCloudWorkspace(true);
       setCloudSaveStatus("saved");
       setCloudWorkspaceMessage("Cloud workspace loaded.");
     } catch (error) {
-      setCanAutoSaveCloudWorkspace(false);
       setCloudSaveStatus("error");
       setCloudWorkspaceMessage(
         error instanceof Error
@@ -960,10 +969,22 @@ export default function Home() {
     applyWorkspaceBackupToState,
     authSession,
     selectedCloudWorkspaceId,
+    storeWorkspaceBackupInBrowser,
   ]);
 
   const handleSaveCloudWorkspace = useCallback(async () => {
     if (!authSession || !selectedCloudWorkspaceId) return;
+
+    const workspaceName = selectedCloudWorkspaceName || "this cloud workspace";
+    const shouldOverwrite = window.confirm(
+      `This will overwrite the saved cloud data for ${workspaceName} with the current workspace data. Continue?`,
+    );
+
+    if (!shouldOverwrite) {
+      setCloudSaveStatus("idle");
+      setCloudWorkspaceMessage("Cloud save canceled. Saved cloud data was not changed.");
+      return;
+    }
 
     setCloudSaveStatus("saving");
     setCloudWorkspaceMessage("Saving cloud workspace…");
@@ -975,8 +996,8 @@ export default function Home() {
         workspaceId: selectedCloudWorkspaceId,
         data: backup,
       });
-      setHasLoadedSelectedCloudData(true);
-      setCanAutoSaveCloudWorkspace(true);
+      storeWorkspaceBackupInBrowser(backup, selectedCloudWorkspaceId);
+      setActiveCloudWorkspaceId(selectedCloudWorkspaceId);
       setCloudSaveStatus("saved");
       setCloudWorkspaceMessage("Saved to cloud.");
     } catch (error) {
@@ -987,79 +1008,32 @@ export default function Home() {
           : "Cloud workspace could not be saved.",
       );
     }
-  }, [authSession, getCurrentWorkspaceStorage, selectedCloudWorkspaceId]);
+  }, [
+    authSession,
+    getCurrentWorkspaceStorage,
+    selectedCloudWorkspaceId,
+    selectedCloudWorkspaceName,
+    storeWorkspaceBackupInBrowser,
+  ]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       if (workspaceMode === "local") {
         setCloudSaveStatus("local");
         setCloudWorkspaceMessage("");
-        setHasLoadedSelectedCloudData(false);
-        setCanAutoSaveCloudWorkspace(false);
+        setActiveCloudWorkspaceId("");
         return;
       }
 
       setCloudSaveStatus("idle");
       setCloudWorkspaceMessage(
-        "Select Load cloud workspace or Save current workspace to cloud.",
+        "Cloud workspace selected. Click Load cloud workspace to replace the current view, or Save current workspace to cloud.",
       );
-      setHasLoadedSelectedCloudData(false);
-      setCanAutoSaveCloudWorkspace(false);
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
   }, [selectedCloudWorkspaceId, workspaceMode]);
 
-  useEffect(() => {
-    if (
-      workspaceMode !== "cloud" ||
-      !authSession ||
-      !selectedCloudWorkspaceId ||
-      !hasLoadedDashboardStorage ||
-      hasLoadedSelectedCloudData
-    ) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      void handleLoadCloudWorkspace();
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [
-    authSession,
-    handleLoadCloudWorkspace,
-    hasLoadedDashboardStorage,
-    hasLoadedSelectedCloudData,
-    selectedCloudWorkspaceId,
-    workspaceMode,
-  ]);
-
-  useEffect(() => {
-    if (
-      workspaceMode !== "cloud" ||
-      !authSession ||
-      !selectedCloudWorkspaceId ||
-      !canAutoSaveCloudWorkspace ||
-      !hasLoadedDashboardStorage
-    ) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      void handleSaveCloudWorkspace();
-    }, 900);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [
-    authSession,
-    canAutoSaveCloudWorkspace,
-    getCurrentWorkspaceStorage,
-    handleSaveCloudWorkspace,
-    hasLoadedDashboardStorage,
-    selectedCloudWorkspaceId,
-    workspaceMode,
-  ]);
 
   const handleExportWorkspaceBackup = () => {
     try {
@@ -1109,12 +1083,21 @@ export default function Home() {
         return;
       }
 
-      restoreWorkspaceBackup(backup);
+      storeWorkspaceBackupInBrowser(backup, activeCloudWorkspaceId);
+      applyWorkspaceBackupToState(backup);
+      setCloudSaveStatus(workspaceMode === "cloud" ? "idle" : "local");
+      setCloudWorkspaceMessage(
+        workspaceMode === "cloud"
+          ? "Backup imported into the current view. Click Save current workspace to cloud when ready."
+          : "",
+      );
       setBackupFeedback({
         type: "success",
-        message: "Workspace backup imported successfully. Reloading…",
+        message:
+          workspaceMode === "cloud"
+            ? "Workspace backup imported into the selected Cloud Workspace view. Cloud data was not saved."
+            : "Workspace backup imported successfully.",
       });
-      window.setTimeout(() => window.location.reload(), 500);
     } catch (error) {
       setBackupFeedback({
         type: "error",
@@ -1176,6 +1159,7 @@ export default function Home() {
               session={authSession}
               selectedCloudWorkspaceId={selectedCloudWorkspaceId}
               onSelectedCloudWorkspaceIdChange={setSelectedCloudWorkspaceId}
+              onSelectedCloudWorkspaceNameChange={setSelectedCloudWorkspaceName}
               saveStatus={cloudSaveStatus}
               message={cloudWorkspaceMessage}
               onLoadCloudWorkspace={handleLoadCloudWorkspace}

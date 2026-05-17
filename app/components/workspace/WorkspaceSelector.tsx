@@ -15,6 +15,7 @@ type WorkspaceSelectorProps = {
   session: SupabaseAuthSession | null;
   selectedCloudWorkspaceId: string;
   onSelectedCloudWorkspaceIdChange: (workspaceId: string) => void;
+  onSelectedCloudWorkspaceNameChange: (workspaceName: string) => void;
   saveStatus: SaveStatus;
   message: string;
   onLoadCloudWorkspace: () => void;
@@ -89,6 +90,7 @@ export function WorkspaceSelector({
   session,
   selectedCloudWorkspaceId,
   onSelectedCloudWorkspaceIdChange,
+  onSelectedCloudWorkspaceNameChange,
   saveStatus,
   message,
   onLoadCloudWorkspace,
@@ -128,6 +130,7 @@ export function WorkspaceSelector({
 
       setHasLoadedWorkspaceSelection(false);
       onSelectedCloudWorkspaceIdChange("");
+      onSelectedCloudWorkspaceNameChange("");
       setWorkspaces([]);
       setWorkspaceOwnerId(null);
       setWorkspaceMessage(null);
@@ -157,9 +160,11 @@ export function WorkspaceSelector({
 
         setWorkspaces(nextWorkspaces);
         setWorkspaceOwnerId(session.user.id);
-        onSelectedCloudWorkspaceIdChange(
-          storedWorkspaceBelongsToUser ? storedWorkspaceId : "",
-        );
+        const restoredWorkspace = storedWorkspaceBelongsToUser
+          ? nextWorkspaces.find((workspace) => workspace.id === storedWorkspaceId)
+          : null;
+        onSelectedCloudWorkspaceIdChange(restoredWorkspace?.id ?? "");
+        onSelectedCloudWorkspaceNameChange(restoredWorkspace?.name ?? "");
       } catch (error) {
         if (!isMounted) return;
 
@@ -183,7 +188,11 @@ export function WorkspaceSelector({
     return () => {
       isMounted = false;
     };
-  }, [onSelectedCloudWorkspaceIdChange, session]);
+  }, [
+    onSelectedCloudWorkspaceIdChange,
+    onSelectedCloudWorkspaceNameChange,
+    session,
+  ]);
 
   useEffect(() => {
     if (!session || !hasLoadedWorkspaceSelection) return;
@@ -193,11 +202,14 @@ export function WorkspaceSelector({
 
   const selectLocalWorkspace = () => {
     onSelectedCloudWorkspaceIdChange("");
+    onSelectedCloudWorkspaceNameChange("");
     setWorkspaceMessage(null);
   };
 
   const selectCloudWorkspace = (workspaceId: string) => {
+    const workspace = visibleWorkspaces.find((item) => item.id === workspaceId);
     onSelectedCloudWorkspaceIdChange(workspaceId);
+    onSelectedCloudWorkspaceNameChange(workspace?.name ?? "");
     setWorkspaceMessage(null);
   };
 
@@ -224,6 +236,7 @@ export function WorkspaceSelector({
       setWorkspaces((currentWorkspaces) => [workspace, ...currentWorkspaces]);
       setWorkspaceOwnerId(session.user.id);
       onSelectedCloudWorkspaceIdChange(workspace.id);
+      onSelectedCloudWorkspaceNameChange(workspace.name);
       setNewWorkspaceName("");
       setWorkspaceMessage({
         type: "success",

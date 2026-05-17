@@ -29,7 +29,7 @@
 
 ## Persistence Boundary
 
-Local Workspace data remains stored in browser `localStorage`, including the Meeting Setup completion flag and setup-backed workspace fields. Backup/export/import remains the safety mechanism for moving or restoring workspace data. In Cloud Workspace mode, the app uses per-workspace browser fallback keys for the active client state and saves/loads the same full workspace backup object to the selected owner-only Supabase `workspaces.workspace_data` JSONB column. Selecting a Cloud Workspace does not auto-migrate local data or silently overwrite the local workspace.
+Local Workspace data remains stored in browser `localStorage`, including the Meeting Setup completion flag and setup-backed workspace fields. Backup/export/import remains the safety mechanism for moving or restoring workspace data. In Cloud Workspace mode, the app uses per-workspace browser fallback keys for the active client state and saves/loads the same full workspace backup object to the selected owner-only Supabase `workspaces.workspace_data` JSONB column. Selecting a Cloud Workspace only selects the container; it does not auto-load cloud data, auto-migrate local data, or silently overwrite the local workspace. Loading and saving cloud data require explicit user actions, and saving requires an overwrite confirmation.
 
 ## Phase 2 Boundary
 

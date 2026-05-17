@@ -78,4 +78,4 @@ create table if not exists public.workspaces (
 );
 ```
 
-Only authenticated owners can select/update rows through RLS. New cloud workspaces may have `workspace_data = null`; the app does not auto-copy Local Workspace data on first selection. No forced migration, realtime collaboration, team sharing, or member-role model is included in this basic persistence step.
+Only authenticated owners can select/update rows through RLS. New cloud workspaces may have `workspace_data = null`; the app does not auto-copy Local Workspace data on first selection, and dropdown selection does not load `workspace_data` until the user clicks Load Cloud Workspace. Saving current data to cloud requires an overwrite confirmation. No forced migration, realtime collaboration, team sharing, or member-role model is included in this basic persistence step.
